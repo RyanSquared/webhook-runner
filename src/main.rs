@@ -1,10 +1,11 @@
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use axum::{
     routing::{get, post},
     http::StatusCode,
     response::IntoResponse,
-    Json, Router,
+    Json, Router, Extension,
 };
 use serde::{Deserialize, Serialize};
 use clap::Parser;
@@ -16,10 +17,11 @@ use tracing::{debug, info};
 mod payload;
 mod webhook;
 mod cli;
+mod error;
 
 #[tokio::main]
 async fn main() {
-    let args = cli::Args::parse();
+    let args = Arc::new(cli::Args::parse());
 
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::try_from_default_env().unwrap())
@@ -28,6 +30,7 @@ async fn main() {
 
     let app = Router::new()
         .route("/", post(webhook::webhook))
+        .layer(Extension(args.clone()))
         .layer(TraceLayer::new_for_http());
     let addr = &args.bind_address.unwrap_or(SocketAddr::from(([0, 0, 0, 0], 80)));
 
