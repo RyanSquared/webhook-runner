@@ -13,6 +13,7 @@ use crate::error::ProcessingError;
 
 /// Receive a webhook from a GitHub server indicating a change in code, match upon an event, and
 /// dispatch the JSON blob to a configured script.
+#[tracing::instrument(skip_all)]
 pub async fn webhook(args: Extension<Arc<Args>>, Json(payload): Json<Payload>)
         -> Result<Html<&'static str>, ProcessingError> {
     // TODO(RyanSquared): Add more relevant testing information here!
