@@ -14,3 +14,4 @@ clap = {version = "3.2.5", features = ["derive", "env"]}
 tracing = "0.1.35"
 tracing-subscriber = {version = "0.3.11", features = ["env-filter", "fmt", "ansi", "json"]}
 tower-http = {version = "0.3.4", features = ["trace"]}
+thiserror = {version = "1.0.31"}
