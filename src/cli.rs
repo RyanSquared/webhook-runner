@@ -8,4 +8,10 @@ use clap::Parser;
 pub struct Args {
     #[clap(short, long, value_parser)]
     pub bind_address: Option<SocketAddr>,
+
+    #[clap(value_parser)]
+    pub command: String,
+
+    #[clap(value_parser)]
+    pub arguments: Vec<String>,
 }
