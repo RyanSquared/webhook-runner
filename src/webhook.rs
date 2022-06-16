@@ -15,8 +15,7 @@ use crate::error::ProcessingError;
 /// dispatch the JSON blob to a configured script.
 pub async fn webhook(args: Extension<Arc<Args>>, Json(payload): Json<Payload>)
         -> Result<Html<&'static str>, ProcessingError> {
-    // TODO(RyanSquared): Tracing does not log here. I am unsure why.
-    // TODO(RyanSquared): CORRECTION TRACING SOMETIMES WORKS HERE???
+    // TODO(RyanSquared): Add more relevant testing information here!
     tracing::info!("hello!");
     let mut c = Command::new(&args.command);
     c.args(&args.arguments);
