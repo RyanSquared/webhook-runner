@@ -60,6 +60,7 @@ pub(crate) struct HubSignature256(Vec<u8>);
 static HUB_SIGNATURE_256: HeaderName = HeaderName::from_static("x-hub-signature-256");
 
 impl HubSignature256 {
+    #[must_use]
     pub(crate) fn verify(&self, key: &Key, content: &Bytes) -> Result<()> {
         let tested_hmac = {
             let mut mac = hmac::Hmac::<Sha256>::new_from_slice(key.into())?;

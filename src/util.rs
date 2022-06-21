@@ -139,6 +139,7 @@ pub(crate) async fn clone_repository(repository_url: &str, clone_timeout: u32) -
 /// Verify that the commit ref of a given Git directory is signed by a valid signature using the
 /// GPG configuration in a given directory. Returns a Result to ensure the bad case is handled.
 #[instrument]
+#[must_use]
 pub(crate) async fn verify_commit(
     commit_ref: &str,
     directory: &Path,
