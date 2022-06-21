@@ -3,7 +3,7 @@ use thiserror::Error;
 
 /// The reasons a program may have died or not started to begin with.
 #[derive(Serialize, Error, Clone, Debug)]
-pub enum DeathReason {
+pub(crate) enum DeathReason {
     /// No command was ever configured to run in the first place
     #[error("no command was configured")]
     NoCommandConfiguration,
@@ -24,7 +24,7 @@ pub enum DeathReason {
 /// been invoked, and if a command was invoked, whether or not it had terminated within a certain
 /// timeout.
 #[derive(Serialize, Clone, Debug)]
-pub enum Status {
+pub(crate) enum Status {
     /// The program has either died or has never lived
     Death(DeathReason),
 

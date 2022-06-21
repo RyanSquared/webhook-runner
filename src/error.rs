@@ -9,7 +9,7 @@ use std::process::ExitStatus;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum ProcessingError {
+pub(crate) enum ProcessingError {
     #[error("thread was unable to join: {source}")]
     Join {
         #[from]
@@ -40,7 +40,7 @@ pub enum ProcessingError {
 
 impl ProcessingError {
     /// Assert from exit status
-    pub fn assert_exit_status(xs: ExitStatus) -> Result<ExitStatus, ProcessingError> {
+    pub(crate) fn assert_exit_status(xs: ExitStatus) -> Result<ExitStatus, ProcessingError> {
         if let Some(n) = xs.code() {
             if n != 0 {
                 return Err(ProcessingError::Command { exit_code: n });
