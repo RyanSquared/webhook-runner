@@ -104,7 +104,7 @@ impl HubSignature256 {
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
         
         // Verify hmac using borrowed body
-        received_hmac.verify(secret_key.into(), &body_bytes).map_err(|_| StatusCode::UNAUTHORIZED);
+        received_hmac.verify(secret_key.into(), &body_bytes).map_err(|_| StatusCode::UNAUTHORIZED)?;
 
         // Rebuild request
         let req = Request::from_parts(parts, body::boxed(Full::from(body_bytes)));
