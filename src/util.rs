@@ -163,7 +163,48 @@ pub(crate) async fn verify_commit(
         &result,
     )
     .await?;
-
     ProcessingError::assert_exit_status(result.status)?;
+
+    let mut command = Command::new("git")
+        .arg("-C")
+        .arg(directory)
+        .arg("checkout")
+        .arg(commit_ref)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+
+    let timeout = tokio::time::timeout(Duration::from_secs(1), command.wait_with_output()).await?;
+    let result = timeout?;
+    debug!(exit_status = ?result.status, "command has completed");
+
+    dump_output(
+        format!("GNUPGHOME={gpghome:?} git -C {directory:?} verify-commit {commit_ref}").as_str(),
+        &result,
+    )
+    .await?;
+    ProcessingError::assert_exit_status(result.status)?;
+
+    // There's a nasty trick you can do when using `git checkout` where you can create a branch
+    // with the same name as a git commit, leading to a situation where you're not checked out
+    // where you want to be checked out. This is a simple fix for it.
+    debug!("assuring we have switched to the right commit");
+    let mut command = Command::new("git")
+        .arg("-C")
+        .arg(directory)
+        .arg("rev-parse")
+        .arg("HEAD")
+        .stdout(Stdio::piped())
+        .spawn()?;
+    let timeout = tokio::time::timeout(Duration::from_secs(1), command.wait_with_output()).await?;
+    let result = timeout?;
+    ProcessingError::assert_exit_status(result.status)?;
+    if std::str::from_utf8(&result.stdout)
+        .map_err(|_| ProcessingError::RepositoryIntegrity)?
+        .trim()
+        != commit_ref
+    {
+        return Err(ProcessingError::RepositoryIntegrity);
+    }
     Ok(())
 }
