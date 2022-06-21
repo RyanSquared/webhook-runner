@@ -21,6 +21,7 @@ mod error;
 mod payload;
 mod status;
 mod webhook;
+mod util;
 
 fn setup_registry() {
     let envfilter = EnvFilter::builder()

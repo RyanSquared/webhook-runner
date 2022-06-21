@@ -1,64 +1,16 @@
-use std::process::Stdio;
 use std::sync::Arc;
-use tokio::io::AsyncBufReadExt;
 
 use axum::{response::Html, Extension, Json};
 use tempdir::TempDir;
-use tokio::task;
-
 use tracing::{debug, info, instrument};
 
 use crate::cli::Args;
-use crate::error::ProcessingError;
+use crate::error::{ProcessingError, Result};
 use crate::payload::{CommitStats, Payload, PushRepository};
 use crate::status::{DeathReason, Status};
+use crate::util::{assert_keyring, clone_repository};
 
-type Result<T> = std::result::Result<T, ProcessingError>;
-
-async fn clone_repository(
-    args: Extension<Arc<Args>>,
-    commit: &CommitStats,
-    repository: &PushRepository,
-) -> Result<TempDir> {
-    // Create a temporary directory for cloning the Git repository into, based on the
-    // name of the current commit
-    let tmp_dir =
-        TempDir::new(format!("webhook-runner-{commit}", commit = commit.id.as_str()).as_ref())?;
-    debug!(directory = ?tmp_dir.path(), "creating new directory to clone git repository");
-
-    // Run the command to clone into the Git repository, capturing output into a pipe
-    let mut clone_process = tokio::process::Command::new("git")
-        .arg("clone")
-        .arg("--recursive")
-        .arg(
-            args.git_repository
-                .as_ref()
-                .unwrap_or(&repository.clone_url),
-        )
-        .arg(tmp_dir.path())
-        .stderr(Stdio::piped())
-        .spawn()?;
-
-    // Return errors depending on if a timeout was hit or a nonzero exit code was reached
-    let timeout = tokio::time::timeout(
-        std::time::Duration::from_secs(args.clone_timeout.into()),
-        clone_process.wait_with_output(),
-    )
-    .await?;
-    let result = timeout?;
-    debug!(exit_status = ?result.status, "command has completed");
-    ProcessingError::assert_exit_status(result.status)?;
-
-    // Print the output of the command
-    let clone_output = result.stderr;
-    let mut lines = clone_output.lines();
-    while let Some(line) = lines.next_line().await? {
-        debug!("`git clone`: {}", line);
-    }
-
-    Ok(tmp_dir)
-}
-
+#[instrument]
 async fn handle_push(args: Extension<Arc<Args>>, payload: Payload) -> Result<Status> {
     if let Payload::Push {
         _ref,
@@ -67,9 +19,6 @@ async fn handle_push(args: Extension<Arc<Args>>, payload: Payload) -> Result<Sta
         ..
     } = payload
     {
-        let last_commit = commits.last().ok_or(ProcessingError::NoCommitsFound)?;
-        debug!(commit = ?last_commit.id.as_str(), "determined head commit");
-
         // Determine whether the push was for a tag or a branch by checking if `ref` starts
         // with an identifier for either, and depending on those options, return a command and
         // optional keyring
@@ -116,7 +65,17 @@ async fn handle_push(args: Extension<Arc<Args>>, payload: Payload) -> Result<Sta
         };
         debug!(?command, ?keyring_path, "determined operation to run");
 
-        let repository_directory = clone_repository(args, last_commit, &repository).await?;
+        let repository_url = args
+            .git_repository
+            .as_ref()
+            .unwrap_or(&repository.clone_url);
+        let repository_directory = clone_repository(repository_url, args.clone_timeout).await?;
+
+        // Rebind keyring path to unwrap the Option<_>
+        if let Some(keyring_path) = keyring_path {
+            // Build the keyring directory
+            let gpg_directory = assert_keyring(keyring_path);
+        }
 
         Ok(Status::Life)
     } else {

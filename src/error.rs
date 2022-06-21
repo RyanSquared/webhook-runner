@@ -8,6 +8,8 @@ use std::fmt::Display;
 use std::process::ExitStatus;
 use thiserror::Error;
 
+pub(crate) type Result<T> = std::result::Result<T, ProcessingError>;
+
 #[derive(Error, Debug)]
 pub(crate) enum ProcessingError {
     #[error("thread was unable to join: {source}")]
@@ -40,7 +42,7 @@ pub(crate) enum ProcessingError {
 
 impl ProcessingError {
     /// Assert from exit status
-    pub(crate) fn assert_exit_status(xs: ExitStatus) -> Result<ExitStatus, ProcessingError> {
+    pub(crate) fn assert_exit_status(xs: ExitStatus) -> Result<ExitStatus> {
         if let Some(n) = xs.code() {
             if n != 0 {
                 return Err(ProcessingError::Command { exit_code: n });
