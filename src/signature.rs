@@ -75,7 +75,7 @@ impl HubSignature256 {
         Ok(())
     }
 
-    #[instrument]
+    #[instrument(skip_all)]
     pub(crate) async fn verify_middleware(
         mut req: Request<BoxBody>,
         next: Next<BoxBody>,
