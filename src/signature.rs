@@ -1,10 +1,9 @@
 use axum::{
-    http::{Request, StatusCode},
     body::{self, BoxBody, Bytes, Full},
+    http::{Request, StatusCode},
     middleware::{self, Next},
     response::Response,
 };
-use base64::decode_config_buf;
 use headers::{Header, HeaderName, HeaderValue};
 use hmac::{Hmac, Mac};
 use sha2::{Digest, Sha256};
@@ -12,21 +11,15 @@ use std::sync::Arc;
 use tracing::{debug, instrument};
 
 use crate::cli::Args;
-
-pub(crate) struct HubSignature256(String);
-
-static HUB_SIGNATURE_256: HeaderName = HeaderName::from_static("x-hub-signature-256");
+use crate::error::{ProcessingError, Result};
 
 #[derive(Clone, Debug)]
 pub(crate) struct Key(Vec<u8>);
 
 impl Key {
-    /// Create a key from a base64-encoded string
+    /// Create a key from a str
     pub(crate) fn new(key: &str) -> Self {
-        // I am proud of this small optimization.
-        let mut vec: Vec<u8> = Vec::with_capacity(32);
-        decode_config_buf(key, base64::STANDARD, &mut vec);
-        Key(vec)
+        Key(key.bytes().collect())
     }
 }
 
@@ -61,16 +54,32 @@ impl clap::builder::TypedValueParser for KeyValueParser {
     }
 }
 
+#[derive(Clone, Debug)]
+pub(crate) struct HubSignature256(Vec<u8>);
+
+static HUB_SIGNATURE_256: HeaderName = HeaderName::from_static("x-hub-signature-256");
+
 impl HubSignature256 {
-    // TODO(RyanSquared): impl
-    pub(crate) fn verify(key: Key) -> bool {
-        true
+    pub(crate) fn verify(&self, key: &Key, content: &Bytes) -> Result<()> {
+        let tested_hmac = {
+            let mut mac = hmac::Hmac::<Sha256>::new_from_slice(key.into())?;
+            mac.update(&content);
+            mac.finalize().into_bytes()
+        };
+        if &tested_hmac[..] != &self.0[..] {
+            return Err(ProcessingError::HmacNotEqual {
+                tested_hmac: hex::encode(&tested_hmac[..]),
+                good_hmac: hex::encode(&self.0[..]),
+            });
+        }
+        Ok(())
     }
 
+    #[instrument]
     pub(crate) async fn verify_middleware(
         mut req: Request<BoxBody>,
         next: Next<BoxBody>,
-    ) -> Result<Response, StatusCode> {
+    ) -> std::result::Result<Response, StatusCode> {
         let args = req
             .extensions_mut()
             .get::<Arc<Args>>()
@@ -81,30 +90,43 @@ impl HubSignature256 {
             None => return Ok(next.run(req).await),
         };
 
+        let received_hmac = match req.headers().get(&HUB_SIGNATURE_256) {
+            Some(header) => {
+                HubSignature256::try_from(header).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+            }
+            None => return Err(StatusCode::UNAUTHORIZED),
+        };
+        dbg!(&received_hmac);
+
         // Extract and rebuild request, borrowing the body for generating the HMAC
         let (parts, body) = req.into_parts();
         let body_bytes = hyper::body::to_bytes(body)
             .await
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-        let hmac = {
-            let mut mac = hmac::Hmac::<Sha256>::new_from_slice(secret_key.into())
-                .map_err(|_| StatusCode::UNAUTHORIZED)?;
-            mac.update(&body_bytes);
-            mac.finalize().into_bytes()
-        };
+        
+        // Verify hmac using borrowed body
+        received_hmac.verify(secret_key.into(), &body_bytes).map_err(|_| StatusCode::UNAUTHORIZED);
 
+        // Rebuild request
         let req = Request::from_parts(parts, body::boxed(Full::from(body_bytes)));
 
-        let sent_hmac = match req.headers().get(&HUB_SIGNATURE_256) {
-            Some(h) => hex::decode(h).map_err(|_| StatusCode::UNAUTHORIZED)?,
-            None => return Err(StatusCode::UNAUTHORIZED),
-        };
+        // All guards have successfully matched, time to move on
+        Ok(next.run(req).await)
+    }
+}
 
-        if hmac[..] == sent_hmac[..] {
-            return Ok(next.run(req).await);
+impl TryFrom<&HeaderValue> for HubSignature256 {
+    type Error = ProcessingError;
+
+    fn try_from(value: &HeaderValue) -> Result<HubSignature256> {
+        let value_str = value.to_str()?;
+        if &value_str[0..7] == "sha256=" {
+            return Ok(HubSignature256(hex::decode(&value_str[7..])?));
+        } else {
+            return Err(ProcessingError::HeaderValueParse {
+                header: value_str.to_string(),
+            });
         }
-
-        Err(StatusCode::UNAUTHORIZED)
     }
 }
 
@@ -118,9 +140,8 @@ impl Header for HubSignature256 {
         I: Iterator<Item = &'i HeaderValue>,
     {
         let value = values.next().ok_or_else(headers::Error::invalid)?;
-        let value_str = value.to_str().expect("not utf8 string");
-        if &value_str[0..7] == "sha256=" {
-            return Ok(HubSignature256(value_str[8..].to_string()));
+        if let Ok(value) = HubSignature256::try_from(value) {
+            return Ok(value);
         }
         Err(headers::Error::invalid())
     }
@@ -129,7 +150,9 @@ impl Header for HubSignature256 {
     where
         E: Extend<HeaderValue>,
     {
-        if let Ok(value) = HeaderValue::from_str(self.0.as_str()) {
+        if let Ok(value) =
+            HeaderValue::from_str(format!("sha256={}", hex::encode(&self.0)).as_str())
+        {
             values.extend(std::iter::once(value));
         }
     }

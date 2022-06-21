@@ -18,8 +18,9 @@ tower-http = {version = "0.3.4", features = ["trace", "map-request-body"]}
 thiserror = {version = "1.0.31"}
 tempdir = "0.3.7"
 headers = "0.3.7"
-base64 = "0.13.0"
 hmac = "0.12.1"
 sha2 = "0.10.2"
 hyper = "0.14.19"
 hex = "0.4.3"
+http = "0.2.8"
+crypto-common = "0.1.3"

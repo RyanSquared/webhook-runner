@@ -40,6 +40,33 @@ pub(crate) enum ProcessingError {
 
     #[error("the integrity of the git repository was compromised")]
     RepositoryIntegrity,
+
+    #[error("the http header value is not a valid str: {source}")]
+    HeaderValue {
+        #[from]
+        source: http::header::ToStrError,
+    },
+
+    #[error("the http header was malformed: {header}")]
+    HeaderValueParse { header: String },
+
+    #[error("hex value was malformed: {source}")]
+    HexDecode {
+        #[from]
+        source: hex::FromHexError,
+    },
+
+    #[error("invalid length of hmac key: {source}")]
+    HmacKeyLength {
+        #[from]
+        source: crypto_common::InvalidLength,
+    },
+
+    #[error("hmac did not match expected: {tested_hmac} != {good_hmac}")]
+    HmacNotEqual {
+        tested_hmac: String,
+        good_hmac: String,
+    },
 }
 
 impl ProcessingError {

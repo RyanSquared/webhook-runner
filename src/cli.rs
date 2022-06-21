@@ -59,7 +59,7 @@ pub(crate) struct Args {
     #[clap(long, env, default_value = "4294967295", value_parser)]
     pub(crate) command_timeout: u32,
 
-    /// UNSTABLE: base64-encoded 256-bit secret key for verifying GitHub webhooks
+    /// UNSTABLE: 256-bit secret key for verifying GitHub webhooks
     #[clap(long, env, value_parser)]
     pub(crate) webhook_secret_key: Option<Key>,
 }
