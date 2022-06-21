@@ -145,27 +145,6 @@ pub(crate) async fn verify_commit(
     gpghome: &Path,
 ) -> Result<()> {
     let mut command = Command::new("git")
-        .env("GNUPGHOME", gpghome)
-        .arg("-C")
-        .arg(directory)
-        .arg("verify-commit")
-        .arg(commit_ref)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()?;
-
-    let timeout = tokio::time::timeout(Duration::from_secs(1), command.wait_with_output()).await?;
-    let result = timeout?;
-    debug!(exit_status = ?result.status, "command has completed");
-
-    dump_output(
-        format!("GNUPGHOME={gpghome:?} git -C {directory:?} verify-commit {commit_ref}").as_str(),
-        &result,
-    )
-    .await?;
-    ProcessingError::assert_exit_status(result.status)?;
-
-    let mut command = Command::new("git")
         .arg("-C")
         .arg(directory)
         .arg("checkout")
@@ -206,5 +185,27 @@ pub(crate) async fn verify_commit(
     {
         return Err(ProcessingError::RepositoryIntegrity);
     }
+
+    let mut command = Command::new("git")
+        .env("GNUPGHOME", gpghome)
+        .arg("-C")
+        .arg(directory)
+        .arg("verify-commit")
+        .arg(commit_ref)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+
+    let timeout = tokio::time::timeout(Duration::from_secs(1), command.wait_with_output()).await?;
+    let result = timeout?;
+    debug!(exit_status = ?result.status, "command has completed");
+
+    dump_output(
+        format!("GNUPGHOME={gpghome:?} git -C {directory:?} verify-commit {commit_ref}").as_str(),
+        &result,
+    )
+    .await?;
+    ProcessingError::assert_exit_status(result.status)?;
+
     Ok(())
 }
