@@ -112,7 +112,7 @@ async fn handle_push(args: Extension<Arc<Args>>, payload: Payload) -> Result<Sta
         } else {
             return Err(ProcessingError::BadCommitRef {
                 _ref: _ref.to_string(),
-            })
+            });
         };
         debug!(?command, ?keyring_path, "determined operation to run");
 
