@@ -73,50 +73,46 @@ async fn handle_push(args: Extension<Arc<Args>>, payload: Payload) -> Result<Sta
         // Determine whether the push was for a tag or a branch by checking if `ref` starts
         // with an identifier for either, and depending on those options, return a command and
         // optional keyring
-        let (command, keyring_path) = match &_ref[0..10] {
-            "refs/heads" => {
-                // This is a commit pushed to a branch
-                match &**args {
-                    // This double deref seems dangerous. Trusting the compiler.
-                    Args {
-                        commit_keyring: keyring,
-                        commit_command: Some(command),
-                        ..
-                    } => (command, keyring),
-                    Args {
-                        commit_keyring: Some(_),
-                        commit_command: None,
-                        ..
-                    } => {
-                        unreachable!("a keyring was configured but a command was not")
-                    }
-                    _ => return Ok(Status::Death(DeathReason::NoCommandConfiguration)),
+        let (command, keyring_path) = if _ref.starts_with("refs/heads/") {
+            // This is a commit pushed to a branch
+            match &**args {
+                // This double deref seems dangerous. Trusting the compiler.
+                Args {
+                    commit_keyring: keyring,
+                    commit_command: Some(command),
+                    ..
+                } => (command, keyring),
+                Args {
+                    commit_keyring: Some(_),
+                    commit_command: None,
+                    ..
+                } => {
+                    unreachable!("a keyring was configured but a command was not")
                 }
+                _ => return Ok(Status::Death(DeathReason::NoCommandConfiguration)),
             }
-            "refs/tags/" => {
-                // This is a commit pushed to a tag
-                match &**args {
-                    // This double deref seems dangerous. Trusting the compiler.
-                    Args {
-                        tag_keyring: keyring,
-                        tag_command: Some(command),
-                        ..
-                    } => (command, keyring),
-                    Args {
-                        tag_keyring: Some(_),
-                        tag_command: None,
-                        ..
-                    } => {
-                        unreachable!("a keyring was configured but a command was not")
-                    }
-                    _ => return Ok(Status::Death(DeathReason::NoCommandConfiguration)),
+        } else if _ref.starts_with("refs/tags/") {
+            // This is a commit pushed to a tag
+            match &**args {
+                // This double deref seems dangerous. Trusting the compiler.
+                Args {
+                    tag_keyring: keyring,
+                    tag_command: Some(command),
+                    ..
+                } => (command, keyring),
+                Args {
+                    tag_keyring: Some(_),
+                    tag_command: None,
+                    ..
+                } => {
+                    unreachable!("a keyring was configured but a command was not")
                 }
+                _ => return Ok(Status::Death(DeathReason::NoCommandConfiguration)),
             }
-            _ => {
-                return Err(ProcessingError::BadCommitRef {
-                    _ref: _ref.to_string(),
-                })
-            }
+        } else {
+            return Err(ProcessingError::BadCommitRef {
+                _ref: _ref.to_string(),
+            })
         };
         debug!(?command, ?keyring_path, "determined operation to run");
 
