@@ -96,7 +96,6 @@ impl HubSignature256 {
             }
             None => return Err(StatusCode::UNAUTHORIZED),
         };
-        dbg!(&received_hmac);
 
         // Extract and rebuild request, borrowing the body for generating the HMAC
         let (parts, body) = req.into_parts();
