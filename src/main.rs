@@ -5,6 +5,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use axum::{
+    body,
     http::StatusCode,
     response::IntoResponse,
     routing::{get, post},
@@ -16,10 +17,13 @@ use tower_http::trace::TraceLayer;
 use tracing::{debug, info};
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 use tracing_subscriber::prelude::*;
+use tower::ServiceBuilder;
+use tower_http::ServiceBuilderExt;
 
 mod cli;
 mod error;
 mod payload;
+mod signature;
 mod status;
 mod util;
 mod webhook;
@@ -56,6 +60,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let app = Router::new()
         .route("/", post(webhook::webhook))
+        .layer(
+            ServiceBuilder::new()
+            .map_request_body(body::boxed)
+            .layer(axum::middleware::from_fn(signature::HubSignature256::verify_middleware))
+        )
         .layer(Extension(args.clone()))
         .layer(Extension(Arc::new(gpgdirs)))
         .layer(TraceLayer::new_for_http());

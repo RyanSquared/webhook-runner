@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use axum::{response::Html, Extension, Json};
+use axum::{response::Html, Extension, Json, TypedHeader};
 use tempdir::TempDir;
 use tracing::{debug, info, instrument};
 
@@ -8,7 +8,9 @@ use crate::cli::Args;
 use crate::error::{ProcessingError, Result};
 use crate::payload::{CommitStats, Payload, PushRepository};
 use crate::status::{DeathReason, Status};
-use crate::util::{assert_gpg_directory, clone_repository, verify_commit, KeyringDirs};
+use crate::util::{
+    assert_gpg_directory, clone_repository, verify_commit, KeyringDirs,
+};
 
 #[instrument(skip(args, payload))]
 async fn handle_push(
@@ -83,7 +85,7 @@ async fn handle_push(
 pub(crate) async fn webhook(
     args: Extension<Arc<Args>>,
     keyring_dirs: Extension<Arc<KeyringDirs>>,
-    Json(payload): Json<Payload>,
+    Json(payload): Json<Payload>
 ) -> Result<Json<Status>> {
     match payload {
         Payload::Push { .. } => {

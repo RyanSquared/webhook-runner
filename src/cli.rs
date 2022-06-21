@@ -3,6 +3,8 @@ use std::net::ToSocketAddrs;
 
 use clap::{Parser, ValueEnum};
 
+use crate::signature::Key;
+
 #[derive(ValueEnum, Clone, Debug)]
 pub(crate) enum KeyringOption {
     Default,
@@ -56,6 +58,10 @@ pub(crate) struct Args {
     // TODO: Unused.
     #[clap(long, env, default_value = "4294967295", value_parser)]
     pub(crate) command_timeout: u32,
+
+    /// UNSTABLE: base64-encoded 256-bit secret key for verifying GitHub webhooks
+    #[clap(long, env, value_parser)]
+    pub(crate) webhook_secret_key: Option<Key>,
 }
 
 impl Args {

@@ -1,5 +1,4 @@
 use axum::{
-    body::Body,
     http::StatusCode,
     response::{IntoResponse, Response},
 };
@@ -38,6 +37,9 @@ pub(crate) enum ProcessingError {
         #[from]
         timeout: tokio::time::error::Elapsed,
     },
+
+    #[error("the integrity of the git repository was compromised")]
+    RepositoryIntegrity,
 }
 
 impl ProcessingError {
