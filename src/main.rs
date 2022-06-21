@@ -1,40 +1,51 @@
+//! Documentation of the command options of the crate can be found by running `webhook-runner -h`,
+//! including flags, options, and environment variables.
+
 use std::net::SocketAddr;
 use std::sync::Arc;
 
 use axum::{
-    routing::{get, post},
     http::StatusCode,
     response::IntoResponse,
-    Json, Router, Extension,
+    routing::{get, post},
+    Extension, Json, Router,
 };
-use serde::{Deserialize, Serialize};
 use clap::Parser;
 use tower_http::trace::TraceLayer;
-use tracing_subscriber::filter::EnvFilter;
-use tracing_subscriber::prelude::*;
 use tracing::{debug, info};
+use tracing_subscriber::filter::{EnvFilter, LevelFilter};
+use tracing_subscriber::prelude::*;
 
-mod payload;
-mod webhook;
 mod cli;
 mod error;
+mod payload;
+mod status;
+mod webhook;
+
+fn setup_registry() {
+    let envfilter = EnvFilter::builder()
+        .with_default_directive(LevelFilter::DEBUG.into())
+        .from_env_lossy();
+    tracing_subscriber::registry()
+        .with(envfilter)
+        .with(tracing_subscriber::fmt::layer())
+        .init();
+}
 
 #[tokio::main]
 async fn main() {
-    let args = Arc::new(cli::Args::parse());
+    setup_registry();
 
-    tracing_subscriber::registry()
-        .with(tracing_subscriber::EnvFilter::try_from_default_env().unwrap())
-        .with(tracing_subscriber::fmt::layer())
-        .init();
+    let args = Arc::new(cli::Args::parse().assert());
+    info!("Running with the following options: {:?}", &args);
 
     let app = Router::new()
         .route("/", post(webhook::webhook))
         .layer(Extension(args.clone()))
         .layer(TraceLayer::new_for_http());
-    let addr = &args.bind_address.unwrap_or(SocketAddr::from(([0, 0, 0, 0], 80)));
+    let addr = &args.bind_address;
 
-    debug!("Listening on http://{}", addr);
+    info!("Listening on http://{}", addr);
 
     axum::Server::bind(addr)
         .serve(app.into_make_service())

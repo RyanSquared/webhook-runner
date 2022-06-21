@@ -4,180 +4,180 @@ use serde::Deserialize;
 
 #[derive(Default, Debug, Deserialize)]
 pub struct Value {
-    pub json: serde_json::Value
+    pub json: serde_json::Value,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
 pub enum Payload {
-  CommitComment {
-      action: String,
-      comment: Comment,
-      repository: Repository,
-      sender: User,
-  },
-  Create {
-      description: String,
-      master_branch: String,
-      pusher_type: String,
-      #[serde(rename="ref")]
-      _ref: String,
-      #[serde(rename="ref_type")]
-      ref_type: String,
-      repository: Repository,
-      sender: User,
-  },
-  Delete {
-      pusher_type: String,
-      #[serde(rename="ref")]
-      _ref: String,
-      ref_type: String,
-      repository: Repository,
-      sender: User,
-  },
-  Deployment {
-      deployment: Deployment,
-      repository: Repository,
-      sender: User,
-  },
-  DeploymentStatus {
-      deployment: Deployment,
-      deployment_status: DeploymentStatus,
-      repository: Repository,
-      sender: User,
-  },
-  Fork {
-      forkee: Repository,
-      repository: Repository,
-      sender: User,
-  },
-  Gollum {
-      pages: Vec<Pages>,
-      repository: Repository,
-      sender: User,
-  },
-  IssueComment {
-      action: String,
-      comment: IssueCommentComment,
-      issue: Issue,
-      repository: Repository,
-      sender: User,
-  },
-  Issues {
-      action: String,
-      issue: Issue,
-      repository: Repository,
-      sender: User,
-  },
-  Member {
-      action: String,
-      member: User,
-      repository: Repository,
-      sender: User,
-  },
-  Membership {
-      action: String,
-      member: User,
-      organization: Organization,
-      scope: String,
-      sender: User,
-      team: Team,
-  },
-  PageBuild {
-      build: PageBuild,
-      id: u64,
-      repository: Repository,
-      sender: User,
-  },
-  Ping {
-      hook: Hook,
-      hook_id: u64,
-      repository: Repository,
-      sender: User,
-      zen: String,
-  },
-  Public {
-      repository: Repository,
-      sender: User,
-  },
-  PullRequest {
-      action: String,
-      number: u64,
-      pull_request: PullRequestDetails,
-      repository: Repository,
-      sender: User,
-  },
-  PullRequestReviewComment {
-      action: String,
-      comment: PullRequestReviewComment,
-      pull_request: PullRequest,
-      repository: Repository,
-      sender: User,
-  },
-  Push {
-      after: String,
-      base_ref: Option<String>,
-      before: String,
-      commits: Vec<CommitStats>,
-      compare: String,
-      created: bool,
-      deleted: bool,
-      forced: bool,
-      head_commit: CommitStats,
-      pusher: UserRef, // note there aren't may fields here
-      #[serde(rename="ref")]
-      _ref: String,
-      repository: PushRepository,
-      sender: User,
-  },
-  Release {
-      action: String,
-      release: Release,
-      repository: Repository,
-      sender: User,
-  },
-  Repository {
-      action: String,
-      organization: Organization,
-      repository: Repository,
-      sender: User,
-  },
-  Status {
-      //branches: Vec<BranchRef>,
-      commit: CommitRef,
-      context: String,
-      created_at: String,
-      description: Option<String>,
-      id: u64,
-      name: String,
-      repository: Repository,
-      sender: User,
-      sha: String,
-      state: String,
-      target_url: Option<String>,
-      updated_at: String,
-  },
-  TeamAdd {
-      organization: Organization,
-      repository: Repository,
-      sender: User,
-      team: Team,
-  },
-  Watch {
-      action: String,
-      repository: Repository,
-      sender: User,
-  },
+    CommitComment {
+        action: String,
+        comment: Comment,
+        repository: Repository,
+        sender: User,
+    },
+    Create {
+        description: String,
+        master_branch: String,
+        pusher_type: String,
+        #[serde(rename = "ref")]
+        _ref: String,
+        #[serde(rename = "ref_type")]
+        ref_type: String,
+        repository: Repository,
+        sender: User,
+    },
+    Delete {
+        pusher_type: String,
+        #[serde(rename = "ref")]
+        _ref: String,
+        ref_type: String,
+        repository: Repository,
+        sender: User,
+    },
+    Deployment {
+        deployment: Deployment,
+        repository: Repository,
+        sender: User,
+    },
+    DeploymentStatus {
+        deployment: Deployment,
+        deployment_status: DeploymentStatus,
+        repository: Repository,
+        sender: User,
+    },
+    Fork {
+        forkee: Repository,
+        repository: Repository,
+        sender: User,
+    },
+    Gollum {
+        pages: Vec<Pages>,
+        repository: Repository,
+        sender: User,
+    },
+    IssueComment {
+        action: String,
+        comment: IssueCommentComment,
+        issue: Issue,
+        repository: Repository,
+        sender: User,
+    },
+    Issues {
+        action: String,
+        issue: Issue,
+        repository: Repository,
+        sender: User,
+    },
+    Member {
+        action: String,
+        member: User,
+        repository: Repository,
+        sender: User,
+    },
+    Membership {
+        action: String,
+        member: User,
+        organization: Organization,
+        scope: String,
+        sender: User,
+        team: Team,
+    },
+    PageBuild {
+        build: PageBuild,
+        id: u64,
+        repository: Repository,
+        sender: User,
+    },
+    Ping {
+        hook: Hook,
+        hook_id: u64,
+        repository: Repository,
+        sender: User,
+        zen: String,
+    },
+    Public {
+        repository: Repository,
+        sender: User,
+    },
+    PullRequest {
+        action: String,
+        number: u64,
+        pull_request: PullRequestDetails,
+        repository: Repository,
+        sender: User,
+    },
+    PullRequestReviewComment {
+        action: String,
+        comment: PullRequestReviewComment,
+        pull_request: PullRequest,
+        repository: Repository,
+        sender: User,
+    },
+    Push {
+        after: String,
+        base_ref: Option<String>,
+        before: String,
+        commits: Vec<CommitStats>,
+        compare: String,
+        created: bool,
+        deleted: bool,
+        forced: bool,
+        head_commit: CommitStats,
+        pusher: UserRef, // note there aren't may fields here
+        #[serde(rename = "ref")]
+        _ref: String,
+        repository: PushRepository,
+        sender: User,
+    },
+    Release {
+        action: String,
+        release: Release,
+        repository: Repository,
+        sender: User,
+    },
+    Repository {
+        action: String,
+        organization: Organization,
+        repository: Repository,
+        sender: User,
+    },
+    Status {
+        //branches: Vec<BranchRef>,
+        commit: CommitRef,
+        context: String,
+        created_at: String,
+        description: Option<String>,
+        id: u64,
+        name: String,
+        repository: Repository,
+        sender: User,
+        sha: String,
+        state: String,
+        target_url: Option<String>,
+        updated_at: String,
+    },
+    TeamAdd {
+        organization: Organization,
+        repository: Repository,
+        sender: User,
+        team: Team,
+    },
+    Watch {
+        action: String,
+        repository: Repository,
+        sender: User,
+    },
 }
 
 #[derive(Default, Debug, Deserialize)]
 pub struct Commit {
-  author: GitUser,
-  committer: GitUser,
-  message: String,
-  tree: GitRef,
-  url: String,
-  comment_count: u64
+    author: GitUser,
+    committer: GitUser,
+    message: String,
+    tree: GitRef,
+    url: String,
+    comment_count: u64,
 }
 
 #[derive(Default, Debug, Deserialize)]
@@ -233,7 +233,7 @@ pub struct Deployment {
     pub environment: String,
     pub id: u64,
     pub payload: Value,
-    #[serde(rename="ref")]
+    #[serde(rename = "ref")]
     pub _ref: String,
     pub repository_url: String,
     pub sha: String,
@@ -333,7 +333,7 @@ pub struct Organization {
     pub public_members_url: String,
     pub repos_url: String,
     pub url: String,
-    pub description: Option<String>
+    pub description: Option<String>,
 }
 
 #[derive(Default, Debug, Deserialize)]
@@ -345,7 +345,6 @@ pub struct Pages {
     pub summary: Option<String>,
     pub title: String,
 }
-
 
 #[derive(Default, Debug, Deserialize)]
 pub struct PullRequestDetails {
@@ -385,7 +384,7 @@ pub struct PullRequestDetails {
     pub commits: u64,
     pub additions: u64,
     pub deletions: u64,
-    pub changed_files: u64
+    pub changed_files: u64,
 }
 
 #[derive(Default, Debug, Deserialize)]
@@ -419,10 +418,9 @@ pub struct PullRequest {
     pub user: User,
 }
 
-
 #[derive(Default, Debug, Deserialize)]
 pub struct PullRequestReviewComment {
-    #[serde(rename="_links")]
+    #[serde(rename = "_links")]
     pub _links: PullRequestReviewCommentLinks,
     pub body: String,
     pub commit_id: String,
@@ -463,8 +461,8 @@ pub struct Release {
 
 #[derive(Default, Debug, Deserialize)]
 pub struct UserRef {
-  pub name: String,
-  pub email: Option<String>
+    pub name: String,
+    pub email: Option<String>,
 }
 
 /// differs from Repository in owner type and some timestamp field types
@@ -624,7 +622,7 @@ pub struct GitUser {
     pub email: String,
     pub name: String,
     pub username: Option<String>,
-    pub date: Option<String>
+    pub date: Option<String>,
 }
 
 #[derive(Default, Debug, Deserialize)]
@@ -643,7 +641,7 @@ pub struct Error {
 #[derive(Default, Debug, Deserialize)]
 pub struct PullSource {
     pub label: String,
-    #[serde(rename="ref")]
+    #[serde(rename = "ref")]
     pub _ref: String,
     pub repo: Repository,
     pub sha: String,
@@ -672,7 +670,7 @@ pub struct PullRequestLinks {
     pub issue: Link,
     pub review_comment: Link,
     pub review_comments: Link,
-    #[serde(rename="self")]
+    #[serde(rename = "self")]
     pub _self: Link,
     pub statuses: Link,
 }
@@ -680,7 +678,7 @@ pub struct PullRequestLinks {
 #[derive(Default, Debug, Deserialize)]
 pub struct PullRequestInnerBase {
     pub label: String,
-    #[serde(rename="ref")]
+    #[serde(rename = "ref")]
     pub _ref: String,
     pub repo: Repository,
     pub sha: String,
@@ -690,7 +688,7 @@ pub struct PullRequestInnerBase {
 #[derive(Default, Debug, Deserialize)]
 pub struct PullRequestInnerHead {
     pub label: String,
-    #[serde(rename="ref")]
+    #[serde(rename = "ref")]
     pub _ref: String,
     pub repo: Repository,
     pub sha: String,
@@ -701,7 +699,7 @@ pub struct PullRequestInnerHead {
 pub struct PullRequestReviewCommentLinks {
     pub html: Link,
     pub pull_request: Link,
-    #[serde(rename="self")]
+    #[serde(rename = "self")]
     pub _self: Link,
 }
 
@@ -722,14 +720,14 @@ pub struct User {
     pub site_admin: bool,
     pub starred_url: String,
     pub subscriptions_url: String,
-    #[serde(rename="type")]
+    #[serde(rename = "type")]
     pub _type: String,
     pub url: String,
 }
 
 #[derive(Default, Debug, Deserialize)]
 pub struct Link {
-  pub href: String,
+    pub href: String,
 }
 
 #[derive(Default, Debug, Deserialize)]
