@@ -10,12 +10,56 @@ use tracing::{debug, info, instrument};
 
 use crate::cli::Args;
 use crate::error::ProcessingError;
-use crate::payload::Payload;
+use crate::payload::{CommitStats, Payload, PushRepository};
 use crate::status::{DeathReason, Status};
 
 type Result<T> = std::result::Result<T, ProcessingError>;
 
-pub async fn handle_push(args: Extension<Arc<Args>>, payload: Payload) -> Result<Status> {
+async fn clone_repository(
+    args: Extension<Arc<Args>>,
+    commit: &CommitStats,
+    repository: &PushRepository,
+) -> Result<TempDir> {
+    // Create a temporary directory for cloning the Git repository into, based on the
+    // name of the current commit
+    let tmp_dir =
+        TempDir::new(format!("webhook-runner-{commit}", commit = commit.id.as_str()).as_ref())?;
+    debug!(directory = ?tmp_dir.path(), "creating new directory to clone git repository");
+
+    // Run the command to clone into the Git repository, capturing output into a pipe
+    let mut clone_process = tokio::process::Command::new("git")
+        .arg("clone")
+        .arg("--recursive")
+        .arg(
+            args.git_repository
+                .as_ref()
+                .unwrap_or(&repository.clone_url),
+        )
+        .arg(tmp_dir.path())
+        .stderr(Stdio::piped())
+        .spawn()?;
+
+    // Return errors depending on if a timeout was hit or a nonzero exit code was reached
+    let timeout = tokio::time::timeout(
+        std::time::Duration::from_secs(args.clone_timeout.into()),
+        clone_process.wait_with_output(),
+    )
+    .await?;
+    let result = timeout?;
+    debug!(exit_status = ?result.status, "command has completed");
+    ProcessingError::assert_exit_status(result.status)?;
+
+    // Print the output of the command
+    let clone_output = result.stderr;
+    let mut lines = clone_output.lines();
+    while let Some(line) = lines.next_line().await? {
+        debug!("`git clone`: {}", line);
+    }
+
+    Ok(tmp_dir)
+}
+
+async fn handle_push(args: Extension<Arc<Args>>, payload: Payload) -> Result<Status> {
     if let Payload::Push {
         _ref,
         commits,
@@ -23,12 +67,8 @@ pub async fn handle_push(args: Extension<Arc<Args>>, payload: Payload) -> Result
         ..
     } = payload
     {
-        let last_commit = commits
-            .last()
-            .ok_or(ProcessingError::NoCommitsFound)?
-            .id
-            .as_str();
-        debug!(?last_commit, "determined head commit");
+        let last_commit = commits.last().ok_or(ProcessingError::NoCommitsFound)?;
+        debug!(commit = ?last_commit.id.as_str(), "determined head commit");
 
         // Determine whether the push was for a tag or a branch by checking if `ref` starts
         // with an identifier for either, and depending on those options, return a command and
@@ -80,40 +120,7 @@ pub async fn handle_push(args: Extension<Arc<Args>>, payload: Payload) -> Result
         };
         debug!(?command, ?keyring_path, "determined operation to run");
 
-        // Create a temporary directory for cloning the Git repository into, based on the
-        // name of the current commit
-        let tmp_dir = TempDir::new(format!("webhook-runner-{last_commit}").as_ref())?;
-        debug!(directory = ?tmp_dir.path(), "creating new directory to clone git repository");
-
-        // Run the command to clone into the Git repository, capturing output into a pipe
-        let mut clone_process = tokio::process::Command::new("git")
-            .arg("clone")
-            .arg("--recursive")
-            .arg(
-                args.git_repository
-                    .as_ref()
-                    .unwrap_or(&repository.clone_url),
-            )
-            .arg(tmp_dir.path())
-            .stderr(Stdio::piped())
-            .spawn()?;
-
-        // Return errors depending on if a timeout was hit or a nonzero exit code was reached
-        let timeout = tokio::time::timeout(
-            std::time::Duration::from_secs(args.clone_timeout.into()),
-            clone_process.wait_with_output(),
-        )
-        .await?;
-        let result = timeout?;
-        debug!(exit_status = ?result.status, "command has completed");
-        ProcessingError::assert_exit_status(result.status)?;
-
-        // Print the output of the command
-        let clone_output = result.stderr;
-        let mut lines = clone_output.lines();
-        while let Some(line) = lines.next_line().await? {
-            debug!("`git clone`: {}", line);
-        }
+        let repository_directory = clone_repository(args, last_commit, &repository).await?;
 
         Ok(Status::Life)
     } else {
@@ -124,7 +131,7 @@ pub async fn handle_push(args: Extension<Arc<Args>>, payload: Payload) -> Result
 /// Receive a webhook from a GitHub server indicating a change in code, match upon an event, and
 /// dispatch the JSON blob to a configured script.
 #[instrument(skip_all)]
-pub async fn webhook(
+pub(crate) async fn webhook(
     args: Extension<Arc<Args>>,
     Json(payload): Json<Payload>,
 ) -> Result<Json<Status>> {
