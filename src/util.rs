@@ -1,4 +1,5 @@
-use std::process::Stdio;
+use std::path::Path;
+use std::process::{Output, Stdio};
 use std::time::Duration;
 
 use tempdir::TempDir;
@@ -9,20 +10,60 @@ use tracing::{debug, info, instrument};
 
 use crate::error::{ProcessingError, Result};
 
+#[derive(Debug, Default)]
+pub(crate) struct KeyringDirs {
+    pub tag: Option<TempDir>,
+    pub commit: Option<TempDir>,
+}
+pub(crate) type Keyrings = (Option<TempDir>, Option<TempDir>);
+
+/// Output the standard output and the standard error of a command's given Output. Does not allow
+/// for configuration of the level because `tracing` requires a const Level.
+pub(crate) async fn dump_output(command: &str, output: &std::process::Output) -> Result<()> {
+    debug!(command = ?command);
+    // Determine the actual command, skipping environment variables
+    let mut iter = command.split_whitespace();
+    let prefix = {
+        loop {
+            let word = iter.next().unwrap_or("undefined");
+            if !word.chars().next().unwrap_or('_').is_uppercase() {
+                break word;
+            }
+        }
+    };
+
+    // Print the output of the command
+    let stdout = &output.stdout;
+    let mut lines = stdout.lines();
+    while let Some(line) = lines.next_line().await? {
+        debug!("{prefix}: {line}");
+    }
+    let stderr = &output.stderr;
+    let mut lines = stderr.lines();
+    while let Some(line) = lines.next_line().await? {
+        debug!("{prefix}: {line}");
+    }
+
+    Ok(())
+}
+
 const GPGCONF_HEADER: &'static str = "
 # Note: DO NOT do this for your personal GPG configuration.
 # This is SOLELY for a configuration designed to verify options using `gpgv` or
 # other compatible solutions using an immutable keyring.";
 
 #[instrument]
-pub(crate) async fn assert_keyring(keyring: &str) -> Result<TempDir> {
+pub(crate) async fn assert_gpg_directory(keyring: &str) -> Result<TempDir> {
     // Ensure that the file exists by loading the file metadata, which returns std::io::Result<_>
     tokio::fs::metadata(keyring).await?;
+    debug!(?keyring, "metadata exists");
 
     // Ensure that the keyring is valid
     let mut command = tokio::process::Command::new("gpg")
         .arg("--no-default-keyring")
         .arg(format!("--keyring={}", keyring).as_str())
+        .arg("--list-keys")
+        .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()?;
 
@@ -30,15 +71,11 @@ pub(crate) async fn assert_keyring(keyring: &str) -> Result<TempDir> {
     let result = timeout?;
     debug!(exit_status = ?result.status, "command has completed");
 
-    // Print the output of the command
-    let clone_output = result.stderr;
-    let mut lines = clone_output.lines();
-    while let Some(line) = lines.next_line().await? {
-        debug!(
-            "`gpg --no-default-keyring --keyring={} --list-keys`: {}",
-            keyring, line
-        );
-    }
+    dump_output(
+        format!("gpg --no-default-keyring --keyring={keyring} --list-keys").as_str(),
+        &result,
+    )
+    .await?;
 
     ProcessingError::assert_exit_status(result.status)?;
 
@@ -50,13 +87,12 @@ pub(crate) async fn assert_keyring(keyring: &str) -> Result<TempDir> {
 
     // Create the configuration file
     let mut file = File::create(tmp_dir.path().join("gpg.conf")).await?;
+    debug!(?file, "opened file");
     file.write_all(GPGCONF_HEADER.as_bytes()).await?;
     file.write_all(format!("\nkeyring {}", keyring).as_bytes())
         .await?;
-    file.write_all("trust-model always".as_bytes()).await?;
-
-    // TODO: determine whether or not the keyring is valid? can require an invocation of
-    // `gpg --list-keys`
+    file.write_all("\ntrust-model always".as_bytes()).await?;
+    debug!("finished writing gpg configuration to file");
 
     Ok(tmp_dir)
 }
@@ -86,13 +122,48 @@ pub(crate) async fn clone_repository(repository_url: &str, clone_timeout: u32) -
     let result = timeout?;
     debug!(exit_status = ?result.status, "command has completed");
 
-    // Print the output of the command
-    let clone_output = result.stderr;
-    let mut lines = clone_output.lines();
-    while let Some(line) = lines.next_line().await? {
-        debug!("`git clone`: {}", line);
-    }
+    dump_output(
+        format!(
+            "git clone --recursive {repository_url} {:?}",
+            tmp_dir.path()
+        )
+        .as_str(),
+        &result,
+    )
+    .await?;
 
     ProcessingError::assert_exit_status(result.status)?;
     Ok(tmp_dir)
+}
+
+/// Verify that the commit ref of a given Git directory is signed by a valid signature using the
+/// GPG configuration in a given directory. Returns a Result to ensure the bad case is handled.
+#[instrument]
+pub(crate) async fn verify_commit(
+    commit_ref: &str,
+    directory: &Path,
+    gpghome: &Path,
+) -> Result<()> {
+    let mut command = Command::new("git")
+        .env("GNUPGHOME", gpghome)
+        .arg("-C")
+        .arg(directory)
+        .arg("verify-commit")
+        .arg(commit_ref)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+
+    let timeout = tokio::time::timeout(Duration::from_secs(1), command.wait_with_output()).await?;
+    let result = timeout?;
+    debug!(exit_status = ?result.status, "command has completed");
+
+    dump_output(
+        format!("GNUPGHOME={gpghome:?} git -C {directory:?} verify-commit {commit_ref}").as_str(),
+        &result,
+    )
+    .await?;
+
+    ProcessingError::assert_exit_status(result.status)?;
+    Ok(())
 }

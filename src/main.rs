@@ -11,6 +11,7 @@ use axum::{
     Extension, Json, Router,
 };
 use clap::Parser;
+use tempdir::TempDir;
 use tower_http::trace::TraceLayer;
 use tracing::{debug, info};
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
@@ -20,8 +21,8 @@ mod cli;
 mod error;
 mod payload;
 mod status;
-mod webhook;
 mod util;
+mod webhook;
 
 fn setup_registry() {
     let envfilter = EnvFilter::builder()
@@ -34,15 +35,29 @@ fn setup_registry() {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     setup_registry();
 
-    let args = Arc::new(cli::Args::parse().assert());
+    let args = Arc::new(cli::Args::parse());
+    args.assert();
     info!("Running with the following options: {:?}", &args);
+
+    let mut gpgdirs: util::KeyringDirs = Default::default();
+    if let Some(keyring) = args.commit_keyring() {
+        gpgdirs
+            .commit
+            .replace(util::assert_gpg_directory(keyring.clone().as_str()).await?);
+    }
+    if let Some(keyring) = args.tag_keyring() {
+        gpgdirs
+            .tag
+            .replace(util::assert_gpg_directory(keyring.clone().as_str()).await?);
+    }
 
     let app = Router::new()
         .route("/", post(webhook::webhook))
         .layer(Extension(args.clone()))
+        .layer(Extension(Arc::new(gpgdirs)))
         .layer(TraceLayer::new_for_http());
     let addr = &args.bind_address;
 
@@ -52,4 +67,6 @@ async fn main() {
         .serve(app.into_make_service())
         .await
         .unwrap();
+
+    Ok(())
 }

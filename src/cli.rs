@@ -33,7 +33,7 @@ pub(crate) struct Args {
 
     /// UNSTABLE: PGP keyring file for verifying commits
     #[clap(long, env, value_parser)]
-    pub(crate) commit_keyring: Option<String>,
+    commit_keyring: Option<String>,
 
     /// UNSTABLE: Shell command to run after commits are (optionally) verified
     #[clap(long, env, value_parser)]
@@ -41,7 +41,7 @@ pub(crate) struct Args {
 
     /// UNSTABLE: PGP keyring file for verifying tags
     #[clap(long, env, value_parser)]
-    pub(crate) tag_keyring: Option<String>,
+    tag_keyring: Option<String>,
 
     /// UNSTABLE: Shell command to run after tags are (optionally) verified
     #[clap(long, env, value_parser)]
@@ -61,7 +61,7 @@ pub(crate) struct Args {
 impl Args {
     /// Determine whether or not the configuration passed to the program is correct; for example,
     /// whether or not commands were defined for every variant that also has a keyring.
-    pub(crate) fn assert(self) -> Self {
+    pub(crate) fn assert(&self) -> &Self {
         if self.tag_keyring.is_some() {
             assert!(
                 self.tag_command.is_some(),
@@ -75,5 +75,14 @@ impl Args {
             );
         }
         self
+    }
+
+    pub(crate) fn commit_keyring(&self) -> &Option<String> {
+        &self.assert().commit_keyring
+    }
+
+
+    pub(crate) fn tag_keyring(&self) -> &Option<String> {
+        &self.assert().tag_keyring
     }
 }

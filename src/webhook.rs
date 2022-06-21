@@ -8,10 +8,14 @@ use crate::cli::Args;
 use crate::error::{ProcessingError, Result};
 use crate::payload::{CommitStats, Payload, PushRepository};
 use crate::status::{DeathReason, Status};
-use crate::util::{assert_keyring, clone_repository};
+use crate::util::{assert_gpg_directory, clone_repository, verify_commit, KeyringDirs};
 
-#[instrument]
-async fn handle_push(args: Extension<Arc<Args>>, payload: Payload) -> Result<Status> {
+#[instrument(skip(args, payload))]
+async fn handle_push(
+    args: Extension<Arc<Args>>,
+    keyring_dirs: Extension<Arc<KeyringDirs>>,
+    payload: Payload,
+) -> Result<Status> {
     if let Payload::Push {
         _ref,
         commits,
@@ -27,17 +31,9 @@ async fn handle_push(args: Extension<Arc<Args>>, payload: Payload) -> Result<Sta
             match &**args {
                 // This double deref seems dangerous. Trusting the compiler.
                 Args {
-                    commit_keyring: keyring,
                     commit_command: Some(command),
                     ..
-                } => (command, keyring),
-                Args {
-                    commit_keyring: Some(_),
-                    commit_command: None,
-                    ..
-                } => {
-                    unreachable!("a keyring was configured but a command was not")
-                }
+                } => (command, &keyring_dirs.commit),
                 _ => return Ok(Status::Death(DeathReason::NoCommandConfiguration)),
             }
         } else if _ref.starts_with("refs/tags/") {
@@ -45,17 +41,9 @@ async fn handle_push(args: Extension<Arc<Args>>, payload: Payload) -> Result<Sta
             match &**args {
                 // This double deref seems dangerous. Trusting the compiler.
                 Args {
-                    tag_keyring: keyring,
                     tag_command: Some(command),
                     ..
-                } => (command, keyring),
-                Args {
-                    tag_keyring: Some(_),
-                    tag_command: None,
-                    ..
-                } => {
-                    unreachable!("a keyring was configured but a command was not")
-                }
+                } => (command, &keyring_dirs.tag),
                 _ => return Ok(Status::Death(DeathReason::NoCommandConfiguration)),
             }
         } else {
@@ -73,8 +61,14 @@ async fn handle_push(args: Extension<Arc<Args>>, payload: Payload) -> Result<Sta
 
         // Rebind keyring path to unwrap the Option<_>
         if let Some(keyring_path) = keyring_path {
-            // Build the keyring directory
-            let gpg_directory = assert_keyring(keyring_path);
+            // Keyring directory exists via TempDir
+            let commit = commits.first().expect("no commits were pushed");
+            verify_commit(
+                commit.id.as_str(),
+                repository_directory.path(),
+                keyring_path.path(),
+            )
+            .await?;
         }
 
         Ok(Status::Life)
@@ -88,13 +82,12 @@ async fn handle_push(args: Extension<Arc<Args>>, payload: Payload) -> Result<Sta
 #[instrument(skip_all)]
 pub(crate) async fn webhook(
     args: Extension<Arc<Args>>,
+    keyring_dirs: Extension<Arc<KeyringDirs>>,
     Json(payload): Json<Payload>,
 ) -> Result<Json<Status>> {
-    // TODO(RyanSquared): Implement battle plan for matching tags/releases and commits being pushed
-    info!("received webhook from server: {payload:?}");
     match payload {
         Payload::Push { .. } => {
-            return Ok(Json(handle_push(args, payload).await?));
+            return Ok(Json(handle_push(args, keyring_dirs, payload).await?));
         }
         _ => {}
     }
