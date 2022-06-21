@@ -62,7 +62,7 @@ async fn handle_push(
         // Rebind keyring path to unwrap the Option<_>
         if let Some(keyring_path) = keyring_path {
             // Keyring directory exists via TempDir
-            let commit = commits.first().expect("no commits were pushed");
+            let commit = commits.last().expect("no commits were pushed");
             verify_commit(
                 commit.id.as_str(),
                 repository_directory.path(),
