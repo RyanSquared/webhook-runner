@@ -87,7 +87,6 @@ impl Args {
         &self.assert().commit_keyring
     }
 
-
     pub(crate) fn tag_keyring(&self) -> &Option<String> {
         &self.assert().tag_keyring
     }

@@ -21,10 +21,7 @@ pub(crate) enum HeaderParseError {
     Content { header: String },
 
     #[error("header value for signature was incorrect size: {length} != {intended}")]
-    Length {
-        length: usize,
-        intended: u32,
-    },
+    Length { length: usize, intended: u32 },
 
     #[error("hex value was malformed: {source}")]
     HexDecode {

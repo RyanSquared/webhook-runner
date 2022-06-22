@@ -6,7 +6,7 @@ use tempdir::TempDir;
 use tokio::fs::File;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
 use tokio::process::Command;
-use tracing::{debug, info, error, instrument};
+use tracing::{debug, error, info, instrument};
 
 use crate::error::{ProcessingError, Result};
 
