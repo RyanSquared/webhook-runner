@@ -119,14 +119,22 @@ impl TryFrom<&HeaderValue> for HubSignature256 {
     type Error = ProcessingError;
 
     fn try_from(value: &HeaderValue) -> Result<HubSignature256> {
-        let value_str = value.to_str()?;
-        if &value_str[0..7] == "sha256=" {
-            return Ok(HubSignature256(hex::decode(&value_str[7..])?));
-        } else {
-            return Err(ProcessingError::HeaderValueParse {
-                header: value_str.to_string(),
-            });
+        value.to_str()?.try_into()
+    }
+}
+
+impl TryFrom<&str> for HubSignature256 {
+    type Error = ProcessingError;
+
+    fn try_from(value: &str) -> Result<HubSignature256> {
+        let len = value.len();
+        if len != (64 + 7) {
+            return Err(ProcessingError::HexLength { length: len, intended: (64 + 7) });
         }
+        if &value[0..7] == "sha256=" {
+            return Ok(HubSignature256(hex::decode(&value[7..])?));
+        }
+        return Err(ProcessingError::HeaderValueParse { header: value.to_string() });
     }
 }
 
