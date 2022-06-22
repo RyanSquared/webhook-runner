@@ -6,7 +6,7 @@ use tempdir::TempDir;
 use tokio::fs::File;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
 use tokio::process::Command;
-use tracing::{debug, info, instrument};
+use tracing::{debug, info, error, instrument};
 
 use crate::error::{ProcessingError, Result};
 
@@ -180,7 +180,10 @@ pub(crate) async fn verify_commit(
     let result = timeout?;
     ProcessingError::assert_exit_status(result.status)?;
     if std::str::from_utf8(&result.stdout)
-        .map_err(|_| ProcessingError::RepositoryIntegrity)?
+        .map_err(|e| {
+            error!("unable to decode utf8 from command output: {e}");
+            ProcessingError::RepositoryIntegrity
+        })?
         .trim()
         != commit_ref
     {

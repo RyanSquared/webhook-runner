@@ -8,7 +8,7 @@ use headers::{Header, HeaderName, HeaderValue};
 use hmac::{Hmac, Mac};
 use sha2::{Digest, Sha256};
 use std::sync::Arc;
-use tracing::{debug, instrument};
+use tracing::{debug, error, instrument};
 
 use crate::cli::Args;
 use crate::error::{HeaderParseError, ProcessingError, Result};
@@ -93,7 +93,10 @@ impl HubSignature256 {
 
         let received_hmac = match req.headers().get(&HUB_SIGNATURE_256) {
             Some(header) => {
-                HubSignature256::try_from(header).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+                HubSignature256::try_from(header).map_err(|e| {
+                    error!("error when parsing header: {e}");
+                    StatusCode::INTERNAL_SERVER_ERROR
+                })?
             }
             None => return Err(StatusCode::UNAUTHORIZED),
         };
@@ -102,12 +105,18 @@ impl HubSignature256 {
         let (parts, body) = req.into_parts();
         let body_bytes = hyper::body::to_bytes(body)
             .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            .map_err(|e| {
+                error!("error when converting body to bytes: {e}");
+                StatusCode::INTERNAL_SERVER_ERROR
+            })?;
 
         // Verify hmac using borrowed body
         received_hmac
             .verify(secret_key.into(), &body_bytes)
-            .map_err(|_| StatusCode::UNAUTHORIZED)?;
+            .map_err(|e| {
+                error!("error when authenticating hmac: {e}");
+                StatusCode::UNAUTHORIZED
+            })?;
 
         // Rebuild request
         let req = Request::from_parts(parts, body::boxed(Full::from(body_bytes)));

@@ -15,8 +15,3 @@ completed. I think perhaps we should set it up to spawn the task in the
 background and just let it run. I don't think we need to wait on it. Especially
 for things that can take a significant amount of time to process, such as
 running a Terraform deployment, or building a Docker container from scratch.
-
-I need to go to every instance of a "trashed" `.map_err`, like in middleware,
-and replace every instance with a version that logs what is happening that is
-causing a trashed `map_err`, because right now nothing is printed and most
-context is lost.
