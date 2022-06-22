@@ -10,6 +10,30 @@ use thiserror::Error;
 pub(crate) type Result<T> = std::result::Result<T, ProcessingError>;
 
 #[derive(Error, Debug)]
+pub(crate) enum HeaderParseError {
+    #[error("the http header value is not a valid str: {source}")]
+    InvalidString {
+        #[from]
+        source: http::header::ToStrError,
+    },
+
+    #[error("the http header was malformed: {header}")]
+    Content { header: String },
+
+    #[error("header value for signature was incorrect size: {length} != {intended}")]
+    Length {
+        length: usize,
+        intended: u32,
+    },
+
+    #[error("hex value was malformed: {source}")]
+    HexDecode {
+        #[from]
+        source: hex::FromHexError,
+    },
+}
+
+#[derive(Error, Debug)]
 pub(crate) enum ProcessingError {
     #[error("thread was unable to join: {source}")]
     Join {
@@ -41,20 +65,8 @@ pub(crate) enum ProcessingError {
     #[error("the integrity of the git repository was compromised")]
     RepositoryIntegrity,
 
-    #[error("the http header value is not a valid str: {source}")]
-    HeaderValue {
-        #[from]
-        source: http::header::ToStrError,
-    },
-
-    #[error("the http header was malformed: {header}")]
-    HeaderValueParse { header: String },
-
-    #[error("hex value was malformed: {source}")]
-    HexDecode {
-        #[from]
-        source: hex::FromHexError,
-    },
+    #[error("the http header could not be parsed: {0}")]
+    HeaderParse(#[from] HeaderParseError),
 
     #[error("invalid length of hmac key: {source}")]
     HmacKeyLength {

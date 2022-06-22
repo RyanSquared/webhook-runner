@@ -11,7 +11,7 @@ use std::sync::Arc;
 use tracing::{debug, instrument};
 
 use crate::cli::Args;
-use crate::error::{ProcessingError, Result};
+use crate::error::{HeaderParseError, ProcessingError, Result};
 
 #[derive(Clone, Debug)]
 pub(crate) struct Key(Vec<u8>);
@@ -103,9 +103,11 @@ impl HubSignature256 {
         let body_bytes = hyper::body::to_bytes(body)
             .await
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-        
+
         // Verify hmac using borrowed body
-        received_hmac.verify(secret_key.into(), &body_bytes).map_err(|_| StatusCode::UNAUTHORIZED)?;
+        received_hmac
+            .verify(secret_key.into(), &body_bytes)
+            .map_err(|_| StatusCode::UNAUTHORIZED)?;
 
         // Rebuild request
         let req = Request::from_parts(parts, body::boxed(Full::from(body_bytes)));
@@ -116,25 +118,34 @@ impl HubSignature256 {
 }
 
 impl TryFrom<&HeaderValue> for HubSignature256 {
-    type Error = ProcessingError;
+    type Error = HeaderParseError;
 
-    fn try_from(value: &HeaderValue) -> Result<HubSignature256> {
+    fn try_from(value: &HeaderValue) -> std::result::Result<HubSignature256, HeaderParseError> {
         value.to_str()?.try_into()
     }
 }
 
 impl TryFrom<&str> for HubSignature256 {
-    type Error = ProcessingError;
+    type Error = HeaderParseError;
 
-    fn try_from(value: &str) -> Result<HubSignature256> {
+    fn try_from(value: &str) -> std::result::Result<HubSignature256, HeaderParseError> {
         let len = value.len();
         if len != (64 + 7) {
-            return Err(ProcessingError::HexLength { length: len, intended: (64 + 7) });
+            return Err(HeaderParseError::Length {
+                length: len,
+                intended: (64 + 7),
+            });
         }
-        if &value[0..7] == "sha256=" {
-            return Ok(HubSignature256(hex::decode(&value[7..])?));
+        if &value[0..7] != "sha256=" {
+            return Err(HeaderParseError::Content {
+                header: value.to_string(),
+            });
         }
-        return Err(ProcessingError::HeaderValueParse { header: value.to_string() });
+        let hex_decode = hex::decode(&value[7..]);
+        match hex_decode {
+            Ok(hex) => Ok(HubSignature256(hex)),
+            Err(e) => Err(HeaderParseError::from(e)),
+        }
     }
 }
 
@@ -162,6 +173,73 @@ impl Header for HubSignature256 {
             HeaderValue::from_str(format!("sha256={}", hex::encode(&self.0)).as_str())
         {
             values.extend(std::iter::once(value));
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn can_decode_signature_header_from_str() {
+        HubSignature256::try_from(
+            "sha256=2ed61cca0a6e94c01c51ab6d396b4308f12fe39d0daffc5738fab9285ec56f9c",
+        )
+        .expect("signature was not correctly parsed");
+    }
+
+    #[test]
+    fn will_error_on_invalid_length() {
+        assert!(
+            HubSignature256::try_from(
+                "sha256=2ed61cca0a6e94c01c51ab6d396b4308f12fe39d0daffc5738fa5ec56f9",
+            )
+            .is_err(),
+            "length should be too short"
+        );
+        assert!(
+            HubSignature256::try_from(
+                "sha256=2ed61cca0a6e94c01c51ab6d396b4308f12fe39d0daffc5738fab9285ec56f9ca",
+            )
+            .is_err(),
+            "length should be too long"
+        );
+        let err = HubSignature256::try_from("");
+        match err {
+            Err(HeaderParseError::Length { .. }) => (),
+            e => {
+                assert!(e.is_err(), "length should be too short");
+                e.expect("incorrect error variant from HubSignature256::<&str>::try_from");
+            }
+        }
+    }
+
+    #[test]
+    fn will_error_on_malformed_header() {
+        let err = HubSignature256::try_from(
+            "sha255=2ed61cca0a6e94c01c51ab6d396b4308f12fe39d0daffc5738fab9285ec56f9c",
+        );
+        match err {
+            Err(HeaderParseError::Content { .. }) => (),
+            e => {
+                assert!(e.is_err(), "content should be invalid");
+                e.expect("incorrect error variant from HubSignature256::<&str>::try_from");
+            }
+        }
+    }
+
+    #[test]
+    fn will_error_on_invalid_hex() {
+        let err = HubSignature256::try_from(
+            "sha256=2gd61cca0a6e94c01c51ab6d396b4308f12fe39d0daffc5738fab9285ec56f9c",
+        );
+        match err {
+            Err(HeaderParseError::HexDecode { .. }) => (),
+            e => {
+                assert!(e.is_err(), "content should be invalid");
+                e.expect("incorrect error variant from HubSignature256::<&str>::try_from");
+            }
         }
     }
 }
