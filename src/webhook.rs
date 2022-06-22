@@ -1,21 +1,19 @@
 use std::sync::Arc;
 
-use axum::{response::Html, Extension, Json, TypedHeader};
-use tempdir::TempDir;
-use tracing::{debug, info, instrument};
+use axum::{Extension, Json};
+use tracing::{debug, instrument};
 
 use crate::cli::Args;
-use crate::error::{ProcessingError, Result};
-use crate::payload::{CommitStats, Payload, PushRepository};
-use crate::status::{DeathReason, Status};
-use crate::util::{assert_gpg_directory, clone_repository, verify_commit, KeyringDirs};
+use crate::payload::Payload;
+use crate::status::DeathReason;
+use crate::util::{clone_repository, verify_commit, KeyringDirs};
 
 #[instrument(skip_all)]
 async fn handle_push(
     args: Extension<Arc<Args>>,
     keyring_dirs: Extension<Arc<KeyringDirs>>,
     payload: Payload,
-) -> Result<Status> {
+) -> Result<(), DeathReason> {
     if let Payload::Push {
         _ref,
         commits,
@@ -34,7 +32,7 @@ async fn handle_push(
                     commit_command: Some(command),
                     ..
                 } => (command, &keyring_dirs.commit),
-                _ => return Ok(Status::Death(DeathReason::NoCommandConfiguration)),
+                _ => return Ok(()),
             }
         } else if _ref.starts_with("refs/tags/") {
             // This is a commit pushed to a tag
@@ -44,34 +42,59 @@ async fn handle_push(
                     tag_command: Some(command),
                     ..
                 } => (command, &keyring_dirs.tag),
-                _ => return Ok(Status::Death(DeathReason::NoCommandConfiguration)),
+                _ => return Ok(()),
             }
         } else {
-            return Err(ProcessingError::BadCommitRef {
-                _ref: _ref.to_string(),
+            return Err(DeathReason::InvalidWebhook {
+                field_path: "_ref".to_string(),
+                value: Some(_ref.to_string()),
             });
         };
         debug!(?command, ?keyring_path, "determined operation to run");
 
+        let commit = match commits.last() {
+            Some(c) => c,
+            None => {
+                return Err(DeathReason::InvalidWebhook {
+                    field_path: "commits".to_string(),
+                    value: None,
+                })
+            }
+        };
         let repository_url = args
             .git_repository
             .as_ref()
             .unwrap_or(&repository.clone_url);
-        let repository_directory = clone_repository(repository_url, args.clone_timeout).await?;
+        let repository_directory =
+            match clone_repository(repository_url, commit.id.as_str(), args.clone_timeout).await {
+                Ok(v) => v,
+                Err(e) => {
+                    return Err(DeathReason::FailedClone {
+                        reason: e.to_string(),
+                    })
+                }
+            };
 
         // Rebind keyring path to unwrap the Option<_>
         if let Some(keyring_path) = keyring_path {
             // Keyring directory exists via TempDir
-            let commit = commits.last().expect("no commits were pushed");
-            verify_commit(
+            let result = verify_commit(
                 commit.id.as_str(),
                 repository_directory.path(),
                 keyring_path.path(),
             )
-            .await?;
+            .await;
+            match result {
+                Ok(_) => (),
+                Err(e) => {
+                    return Err(DeathReason::KeyringVerification {
+                        reason: e.to_string(),
+                    });
+                }
+            }
         }
 
-        Ok(Status::Life)
+        Ok(())
     } else {
         panic!("must be called with Payload::Push value")
     }
@@ -84,12 +107,17 @@ pub(crate) async fn webhook(
     args: Extension<Arc<Args>>,
     keyring_dirs: Extension<Arc<KeyringDirs>>,
     Json(payload): Json<Payload>,
-) -> Result<Json<Status>> {
+) -> Result<Json<()>, Json<DeathReason>> {
+    /*
     match payload {
         Payload::Push { .. } => {
             return Ok(Json(handle_push(args, keyring_dirs, payload).await?));
         }
         _ => {}
     }
-    Ok(Json(Status::Life))
+    */
+    if let Payload::Push { .. } = payload {
+        return Ok(Json(handle_push(args, keyring_dirs, payload).await?));
+    }
+    Ok(Json(()))
 }

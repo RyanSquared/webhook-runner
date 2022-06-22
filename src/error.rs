@@ -3,7 +3,6 @@ use axum::{
     response::{IntoResponse, Response},
 };
 
-use std::fmt::Display;
 use std::process::ExitStatus;
 use thiserror::Error;
 
@@ -46,12 +45,6 @@ pub(crate) enum ProcessingError {
 
     #[error("process returned nonzero exit code: {exit_code}")]
     Command { exit_code: i32 },
-
-    #[error("no commits were found")]
-    NoCommitsFound,
-
-    #[error("bad ref in commit push: {_ref}")]
-    BadCommitRef { _ref: String },
 
     #[error("timeout expired: {timeout}")]
     Timeout {

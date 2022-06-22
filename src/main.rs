@@ -1,22 +1,18 @@
 //! Documentation of the command options of the crate can be found by running `webhook-runner -h`,
 //! including flags, options, and environment variables.
 
-use std::net::SocketAddr;
 use std::sync::Arc;
 
 use axum::{
     body,
-    http::StatusCode,
-    response::IntoResponse,
-    routing::{get, post},
-    Extension, Json, Router,
+    routing::post,
+    Extension, Router,
 };
 use clap::Parser;
-use tempdir::TempDir;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 use tower_http::ServiceBuilderExt;
-use tracing::{debug, info};
+use tracing::info;
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 use tracing_subscriber::prelude::*;
 
@@ -57,6 +53,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .tag
             .replace(util::assert_gpg_directory(keyring.clone().as_str()).await?);
     }
+    info!(?gpgdirs, "Built keyring directories");
 
     let app = Router::new()
         .route("/", post(webhook::webhook))

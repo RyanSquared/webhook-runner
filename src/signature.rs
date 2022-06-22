@@ -1,12 +1,12 @@
 use axum::{
     body::{self, BoxBody, Bytes, Full},
     http::{Request, StatusCode},
-    middleware::{self, Next},
+    middleware::Next,
     response::Response,
 };
 use headers::{Header, HeaderName, HeaderValue};
-use hmac::{Hmac, Mac};
-use sha2::{Digest, Sha256};
+use hmac::Mac;
+use sha2::Sha256;
 use std::sync::Arc;
 use tracing::{debug, error, instrument};
 
@@ -43,8 +43,8 @@ impl clap::builder::TypedValueParser for KeyValueParser {
 
     fn parse_ref(
         &self,
-        cmd: &clap::Command,
-        arg: Option<&clap::Arg>,
+        _cmd: &clap::Command,
+        _arg: Option<&clap::Arg>,
         value: &std::ffi::OsStr,
     ) -> std::result::Result<Self::Value, clap::Error> {
         let value = value
@@ -60,14 +60,15 @@ pub(crate) struct HubSignature256(Vec<u8>);
 static HUB_SIGNATURE_256: HeaderName = HeaderName::from_static("x-hub-signature-256");
 
 impl HubSignature256 {
-    #[must_use]
     pub(crate) fn verify(&self, key: &Key, content: &Bytes) -> Result<()> {
         let tested_hmac = {
             let mut mac = hmac::Hmac::<Sha256>::new_from_slice(key.into())?;
-            mac.update(&content);
+            mac.update(content);
             mac.finalize().into_bytes()
         };
-        if &tested_hmac[..] != &self.0[..] {
+
+        debug!(?tested_hmac, received_hmac = ?self.0, "ensuring equality");
+        if tested_hmac[..] != self.0[..] {
             return Err(ProcessingError::HmacNotEqual {
                 tested_hmac: hex::encode(&tested_hmac[..]),
                 good_hmac: hex::encode(&self.0[..]),
@@ -99,22 +100,22 @@ impl HubSignature256 {
             None => return Err(StatusCode::UNAUTHORIZED),
         };
 
-        // Extract and rebuild request, borrowing the body for generating the HMAC
+        debug!("breaking body into parts");
         let (parts, body) = req.into_parts();
         let body_bytes = hyper::body::to_bytes(body).await.map_err(|e| {
             error!("error when converting body to bytes: {e}");
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
-        // Verify hmac using borrowed body
+        debug!("verifying hmac");
         received_hmac
-            .verify(secret_key.into(), &body_bytes)
+            .verify(secret_key, &body_bytes)
             .map_err(|e| {
                 error!("error when authenticating hmac: {e}");
                 StatusCode::UNAUTHORIZED
             })?;
 
-        // Rebuild request
+        debug!("rebuilding request from parts");
         let req = Request::from_parts(parts, body::boxed(Full::from(body_bytes)));
 
         // All guards have successfully matched, time to move on

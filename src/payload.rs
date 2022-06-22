@@ -1,3 +1,6 @@
+#![allow(clippy::large_enum_variant)]
+#![allow(dead_code)]
+
 use serde::Deserialize;
 
 // Note: Nicked with modifications from https://github.com/softprops/afterparty
