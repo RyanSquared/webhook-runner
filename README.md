@@ -1,3 +1,5 @@
+![example workflow](https://github.com/RyanSquared/webhook-runner/actions/workflows/ci.yaml/badge.svg)
+
 # webhook-runner
 rust program to run thing once webhook is hit
 
