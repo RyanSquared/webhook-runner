@@ -181,6 +181,8 @@ impl Header for HubSignature256 {
 mod tests {
     use super::*;
 
+    // {{{ HubSignature256 decoding
+
     #[test]
     fn can_decode_signature_header_from_str() {
         HubSignature256::try_from(
@@ -242,4 +244,36 @@ mod tests {
             }
         }
     }
+
+    // }}}
+
+    // {{{ HubSignature256 verifying
+    #[test]
+    fn can_verify_valid_signature() {
+        let signature = HubSignature256::try_from(
+            "sha256=aa5f1f4ddf25689f59c16b7caef668db08d6c2656d85c899df8457d32d771d72",
+        ).expect("unable to parse signature header");
+        let key = Key::new("testingkey");
+        let test_body = axum::body::Bytes::from_static(b"hello");
+        signature.verify(&key, &test_body).expect("invalid signature verification");
+    }
+
+    #[test]
+    fn will_error_on_incorrect_signature() {
+        let signature = HubSignature256::try_from(
+            "sha256=aa5f1f4ddf25689f59c16b7caef668db08d6c2656d85c899df8457d32d771d73",
+        ).expect("unable to parse signature header");
+        let key = Key::new("testingkey");
+        let test_body = axum::body::Bytes::from_static(b"hello");
+        assert!(signature.verify(&key, &test_body).is_err(), "didn't error on modified signature");
+
+        let signature = HubSignature256::try_from(
+            "sha256=aa5f1f4ddf25689f59c16b7caef668db08d6c2656d85c899df8457d32d771d72",
+        ).expect("unable to parse signature header");
+        let key = Key::new("testingkey");
+        let test_body = axum::body::Bytes::from_static(b"heloo");
+        assert!(signature.verify(&key, &test_body).is_err(), "didn't error on modified body");
+    }
+    // }}}
+
 }
