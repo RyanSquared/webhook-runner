@@ -64,15 +64,16 @@ pub(crate) enum ProcessingError {
         source: crypto_common::InvalidLength,
     },
 
-    #[error("hmac did not match expected: {tested_hmac} != {good_hmac}")]
-    HmacNotEqual {
-        tested_hmac: String,
-        good_hmac: String,
+    #[error("hmac did not match expected: {source}")]
+    HmacVerification {
+        #[from]
+        source: digest::MacError,
     },
 }
 
 impl ProcessingError {
-    /// Assert from exit status
+    /// Assert the program exited with an exit code of zero, assuming zero is a success case; if an
+    /// exit code was unobtainable, don't err on the side of caution.
     pub(crate) fn assert_exit_status(xs: ExitStatus) -> Result<ExitStatus> {
         if let Some(n) = xs.code() {
             if n != 0 {

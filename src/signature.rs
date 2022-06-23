@@ -11,13 +11,14 @@ use std::sync::Arc;
 use tracing::{debug, error, instrument};
 
 use crate::cli::Args;
-use crate::error::{HeaderParseError, ProcessingError, Result};
+use crate::error::{HeaderParseError, Result};
 
 #[derive(Clone, Debug)]
 pub(crate) struct Key(Vec<u8>);
 
+/// A key to be used for hmac-sha256 signature verification.
 impl Key {
-    /// Create a key from a str
+    /// Convert the given input to bytes to use as a key.
     pub(crate) fn new(key: &str) -> Self {
         Key(key.bytes().collect())
     }
@@ -54,29 +55,31 @@ impl clap::builder::TypedValueParser for KeyValueParser {
     }
 }
 
+/// A header from GitHub containing the signed body's content.
 #[derive(Clone, Debug)]
 pub(crate) struct HubSignature256(Vec<u8>);
 
 static HUB_SIGNATURE_256: HeaderName = HeaderName::from_static("x-hub-signature-256");
 
 impl HubSignature256 {
+    /// Verify that a hmac-sha256 signature from the given key will produce the same result as the
+    /// stored mac.
     pub(crate) fn verify(&self, key: &Key, content: &Bytes) -> Result<()> {
         let tested_hmac = {
             let mut mac = hmac::Hmac::<Sha256>::new_from_slice(key.into())?;
             mac.update(content);
-            mac.finalize().into_bytes()
+            mac
         };
 
         debug!(?tested_hmac, received_hmac = ?self.0, "ensuring equality");
-        if tested_hmac[..] != self.0[..] {
-            return Err(ProcessingError::HmacNotEqual {
-                tested_hmac: hex::encode(&tested_hmac[..]),
-                good_hmac: hex::encode(&self.0[..]),
-            });
-        }
+        tested_hmac.verify_slice(&self.0[..])?;
         Ok(())
     }
 
+    /// Provide a middleware for the Axum application to parse a GitHub X-Hub-Signature-256 value
+    /// and verify the signature from the body.
+    ///
+    /// Reference: <https://docs.github.com/en/developers/webhooks-and-events/webhooks/securing-your-webhooks>
     #[instrument(skip_all)]
     pub(crate) async fn verify_middleware(
         mut req: Request<BoxBody>,
@@ -108,12 +111,10 @@ impl HubSignature256 {
         })?;
 
         debug!("verifying hmac");
-        received_hmac
-            .verify(secret_key, &body_bytes)
-            .map_err(|e| {
-                error!("error when authenticating hmac: {e}");
-                StatusCode::UNAUTHORIZED
-            })?;
+        received_hmac.verify(secret_key, &body_bytes).map_err(|e| {
+            error!("error when authenticating hmac: {e}");
+            StatusCode::UNAUTHORIZED
+        })?;
 
         debug!("rebuilding request from parts");
         let req = Request::from_parts(parts, body::boxed(Full::from(body_bytes)));
