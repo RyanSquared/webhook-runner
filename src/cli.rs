@@ -1,14 +1,8 @@
 use std::net::SocketAddr;
 
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 
 use crate::signature::Key;
-
-#[derive(ValueEnum, Clone, Debug)]
-pub(crate) enum KeyringOption {
-    Default,
-    Custom,
-}
 
 /// Run commands based on optionally signed commits from a Git repository.
 #[derive(Parser, Debug)]

@@ -3,11 +3,7 @@
 
 use std::sync::Arc;
 
-use axum::{
-    body,
-    routing::post,
-    Extension, Router,
-};
+use axum::{body, routing::post, Extension, Router};
 use clap::Parser;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;

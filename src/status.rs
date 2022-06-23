@@ -6,7 +6,10 @@ use thiserror::Error;
 pub(crate) enum DeathReason {
     /// The information we received from the webhook did not match something we expected
     #[error("Received invalid data in webhook at path: {field_path}, value?: {value:?}")]
-    InvalidWebhook { field_path: String, value: Option<String> },
+    InvalidWebhook {
+        field_path: String,
+        value: Option<String>,
+    },
 
     /// We had some internal error when cloning from the repository
     #[error("Cloning the repository failed: {reason}")]

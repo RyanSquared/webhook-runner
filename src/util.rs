@@ -51,6 +51,8 @@ const GPGCONF_HEADER: &str = "
 # This is SOLELY for a configuration designed to verify options using `gpgv` or
 # other compatible solutions using an immutable keyring.";
 
+/// Ensure that a directory exists with the gpg.conf file that configures how the program
+/// looks for the keyring, using a TempDir that will be automatically removed when dropped.
 #[instrument]
 pub(crate) async fn assert_gpg_directory(keyring: &str) -> Result<TempDir> {
     // Ensure that the file exists by loading the file metadata, which returns std::io::Result<_>
@@ -96,8 +98,14 @@ pub(crate) async fn assert_gpg_directory(keyring: &str) -> Result<TempDir> {
     Ok(tmp_dir)
 }
 
+/// Clone a GitHub repository and ensure that a given commit ref matches what was expected,
+/// including a check to ensure that the checkout was to a commit ref and not a branch.
 #[instrument]
-pub(crate) async fn clone_repository(repository_url: &str, commit_ref: &str, clone_timeout: u32) -> Result<TempDir> {
+pub(crate) async fn clone_repository(
+    repository_url: &str,
+    commit_ref: &str,
+    clone_timeout: u32,
+) -> Result<TempDir> {
     // Create a temporary directory for cloning the Git repository into, based on the
     // name of the current commit
     let tmp_dir = TempDir::new("webhook-runner")?;
@@ -147,7 +155,7 @@ pub(crate) async fn clone_repository(repository_url: &str, commit_ref: &str, clo
     let timeout = tokio::time::timeout(Duration::from_secs(1), command.wait_with_output()).await?;
     let result = timeout?;
     ProcessingError::assert_exit_status(result.status)?;
-    let received_commit_ref =  std::str::from_utf8(&result.stdout)
+    let received_commit_ref = std::str::from_utf8(&result.stdout)
         .map_err(|e| {
             error!("unable to decode utf8 from command output: {e}");
             ProcessingError::RepositoryIntegrity

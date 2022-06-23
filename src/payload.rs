@@ -1,15 +1,16 @@
 #![allow(clippy::large_enum_variant)]
-#![allow(dead_code)]
 
 use serde::Deserialize;
 
 // Note: Nicked with modifications from https://github.com/softprops/afterparty
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct Value {
     pub json: serde_json::Value,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
 pub enum Payload {
@@ -173,6 +174,7 @@ pub enum Payload {
     },
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct Commit {
     author: GitUser,
@@ -183,12 +185,14 @@ pub struct Commit {
     comment_count: u64,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct BranchRef {
     pub commit: GitRef,
     pub name: String,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct PageBuild {
     pub commit: String,
@@ -201,6 +205,7 @@ pub struct PageBuild {
     pub url: String,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct Comment {
     pub body: String,
@@ -216,6 +221,7 @@ pub struct Comment {
     pub user: User,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct CommitRef {
     pub author: User,
@@ -228,6 +234,7 @@ pub struct CommitRef {
     pub url: String,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct Deployment {
     pub created_at: String,
@@ -246,6 +253,7 @@ pub struct Deployment {
     pub url: String,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct DeploymentStatus {
     pub created_at: String,
@@ -260,6 +268,7 @@ pub struct DeploymentStatus {
     pub url: String,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct CommitStats {
     pub added: Vec<String>,
@@ -275,6 +284,7 @@ pub struct CommitStats {
     pub url: String,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct Hook {
     pub active: bool,
@@ -291,6 +301,7 @@ pub struct Hook {
     pub url: String,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct Issue {
     pub assignee: Option<String>,
@@ -314,6 +325,7 @@ pub struct Issue {
     pub user: User,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct IssueCommentComment {
     pub body: String,
@@ -326,6 +338,7 @@ pub struct IssueCommentComment {
     pub user: User,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct Organization {
     pub avatar_url: String,
@@ -339,6 +352,7 @@ pub struct Organization {
     pub description: Option<String>,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct Pages {
     pub action: String,
@@ -349,6 +363,7 @@ pub struct Pages {
     pub title: String,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct PullRequestDetails {
     pub _links: PullRequestLinks,
@@ -390,6 +405,7 @@ pub struct PullRequestDetails {
     pub changed_files: u64,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct PullRequest {
     pub _links: PullRequestLinks,
@@ -421,6 +437,7 @@ pub struct PullRequest {
     pub user: User,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct PullRequestReviewComment {
     #[serde(rename = "_links")]
@@ -441,6 +458,7 @@ pub struct PullRequestReviewComment {
     pub user: User,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct Release {
     pub assets: Vec<String>,
@@ -462,12 +480,14 @@ pub struct Release {
     pub zipball_url: String,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct UserRef {
     pub name: String,
     pub email: Option<String>,
 }
 
+#[allow(dead_code)]
 /// differs from Repository in owner type and some timestamp field types
 #[derive(Default, Debug, Deserialize)]
 pub struct PushRepository {
@@ -539,6 +559,7 @@ pub struct PushRepository {
     pub watchers_count: u64,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct Repository {
     pub archive_url: String,
@@ -609,6 +630,7 @@ pub struct Repository {
     pub watchers_count: u64,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct Team {
     pub id: u64,
@@ -620,6 +642,7 @@ pub struct Team {
     pub url: String,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct GitUser {
     pub email: String,
@@ -628,6 +651,7 @@ pub struct GitUser {
     pub date: Option<String>,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct Config {
     pub content_type: String,
@@ -636,11 +660,13 @@ pub struct Config {
     pub url: String,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct Error {
     pub message: Option<String>,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct PullSource {
     pub label: String,
@@ -651,6 +677,7 @@ pub struct PullSource {
     pub user: User,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct Label {
     pub color: String,
@@ -658,6 +685,7 @@ pub struct Label {
     pub url: String,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct LastResponse {
     pub code: Option<String>,
@@ -665,6 +693,7 @@ pub struct LastResponse {
     pub status: String,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct PullRequestLinks {
     pub comments: Link,
@@ -678,6 +707,7 @@ pub struct PullRequestLinks {
     pub statuses: Link,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct PullRequestInnerBase {
     pub label: String,
@@ -688,6 +718,7 @@ pub struct PullRequestInnerBase {
     pub user: User,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct PullRequestInnerHead {
     pub label: String,
@@ -698,6 +729,7 @@ pub struct PullRequestInnerHead {
     pub user: User,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct PullRequestReviewCommentLinks {
     pub html: Link,
@@ -706,6 +738,7 @@ pub struct PullRequestReviewCommentLinks {
     pub _self: Link,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct User {
     pub avatar_url: String,
@@ -728,11 +761,13 @@ pub struct User {
     pub url: String,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct Link {
     pub href: String,
 }
 
+#[allow(dead_code)]
 #[derive(Default, Debug, Deserialize)]
 pub struct GitRef {
     pub sha: String,
