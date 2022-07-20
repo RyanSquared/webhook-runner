@@ -82,7 +82,7 @@ impl Args {
             !(self
                 .git_repository
                 .as_ref()
-                .map(|v| v.contains("@"))
+                .map(|v| v.contains('@'))
                 .unwrap_or(false) && self.ssh_key.is_none()),
                 "repository with ssh authentication defined without defining ssh key");
         self

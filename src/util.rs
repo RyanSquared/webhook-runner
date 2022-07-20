@@ -1,4 +1,3 @@
-use std::sync::Mutex;
 use std::path::Path;
 use std::process::Stdio;
 use std::time::Duration;
@@ -8,7 +7,7 @@ use tempdir::TempDir;
 use tokio::fs::File;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
 use tokio::process::Command;
-use tracing::{debug, error, instrument};
+use tracing::{debug, instrument};
 
 use crate::error::{ProcessingError, Result};
 
@@ -113,7 +112,7 @@ pub(crate) async fn clone_repository(
 
     let opts = (repository_url.to_string(),
                 commit_ref.to_string(),
-                ssh_key.map(|x| x.clone()));
+                ssh_key.cloned());
 
     let result: Result<_> = tokio::task::spawn_blocking(move || {
         let tmp_dir = TempDir::new("webhook-runner")?;
@@ -123,7 +122,7 @@ pub(crate) async fn clone_repository(
         let repo = if let Some(ssh_key) = ssh_key {
             debug!(?ssh_key, "using ssh key authentication");
             let mut callbacks = RemoteCallbacks::new();
-            callbacks.credentials(|url, username_from_url, allowed_types| {
+            callbacks.credentials(|_url, username_from_url, _allowed_types| {
                 Cred::ssh_key (
                     username_from_url.unwrap_or("git"),
                     None,
@@ -138,10 +137,10 @@ pub(crate) async fn clone_repository(
             let mut builder = RepoBuilder::new();
             builder.fetch_options(fetch_options);
 
-            builder.clone(repository_url.as_str(), &tmp_dir.path())?
+            builder.clone(repository_url.as_str(), tmp_dir.path())?
         } else {
             debug!("using non-ssh key authentication");
-            Repository::clone(repository_url.as_str(), &tmp_dir.path())?
+            Repository::clone(repository_url.as_str(), tmp_dir.path())?
         };
 
         debug!("repository has been cloned");
@@ -150,8 +149,8 @@ pub(crate) async fn clone_repository(
         // instead of an exact ref. revparse_single never returns the branch, just the object
         // that it would point to.
         let revparse = repo.revparse_single(commit_ref.as_str())?;
-        repo.checkout_tree(&revparse, None);
-        repo.set_head_detached(revparse.id());
+        repo.checkout_tree(&revparse, None)?;
+        repo.set_head_detached(revparse.id())?;
 
         Ok((revparse.id(), tmp_dir))
     }).await?;
