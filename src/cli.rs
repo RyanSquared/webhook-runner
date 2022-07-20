@@ -18,6 +18,11 @@ pub(crate) struct Args {
     #[clap(long, env, value_parser)]
     pub(crate) git_repository: Option<String>,
 
+    /// Full path to file of an SSH key that should be used when a Git repository with an SSH URL
+    /// is configured
+    #[clap(long, env, value_parser)]
+    pub(crate) ssh_key: Option<String>,
+
     /// TEMP: Command to run when receiving any webhook
     #[clap(value_parser)]
     pub(crate) command: String,
@@ -73,6 +78,13 @@ impl Args {
                 "commit keyring defined without defining commit command"
             );
         }
+        assert!(
+            !(self
+                .git_repository
+                .as_ref()
+                .map(|v| v.contains("@"))
+                .unwrap_or(false) && self.ssh_key.is_none()),
+                "repository with ssh authentication defined without defining ssh key");
         self
     }
 

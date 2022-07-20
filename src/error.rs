@@ -69,6 +69,12 @@ pub(crate) enum ProcessingError {
         #[from]
         source: digest::MacError,
     },
+
+    #[error("unable to perform operation on git repository: {source}")]
+    GitOperation {
+        #[from]
+        source: git2::Error,
+    },
 }
 
 impl ProcessingError {

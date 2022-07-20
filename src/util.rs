@@ -1,7 +1,9 @@
+use std::sync::Mutex;
 use std::path::Path;
 use std::process::Stdio;
 use std::time::Duration;
 
+use git2::{Repository, Oid, Cred, RemoteCallbacks, FetchOptions, build::RepoBuilder};
 use tempdir::TempDir;
 use tokio::fs::File;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
@@ -105,66 +107,61 @@ pub(crate) async fn clone_repository(
     repository_url: &str,
     commit_ref: &str,
     clone_timeout: u32,
+    ssh_key: Option<&String>,
 ) -> Result<TempDir> {
-    // Create a temporary directory for cloning the Git repository into, based on the
-    // name of the current commit
-    let tmp_dir = TempDir::new("webhook-runner")?;
-    debug!(directory = ?tmp_dir.path(), "creating new directory to clone git repository");
+    // Create a temporary directory for cloning the Git repository into
 
-    // Run the command to clone into the Git repository, capturing output into a pipe
-    let clone_process = Command::new("git")
-        .arg("clone")
-        .arg("--recursive")
-        .arg(repository_url)
-        .arg(tmp_dir.path())
-        .stderr(Stdio::piped())
-        .spawn()?;
+    let opts = (repository_url.to_string(),
+                commit_ref.to_string(),
+                ssh_key.map(|x| x.clone()));
 
-    // Return errors depending on if a timeout was hit or a nonzero exit code was reached
-    let timeout = tokio::time::timeout(
-        Duration::from_secs(clone_timeout.into()),
-        clone_process.wait_with_output(),
-    )
-    .await?;
-    let result = timeout?;
-    debug!(exit_status = ?result.status, "command has completed");
+    let result: Result<_> = tokio::task::spawn_blocking(move || {
+        let tmp_dir = TempDir::new("webhook-runner")?;
+        debug!(directory = ?tmp_dir.path(), "creating new directory to clone git repository");
 
-    dump_output(
-        format!(
-            "git clone --recursive {repository_url} {:?}",
-            tmp_dir.path()
-        )
-        .as_str(),
-        &result,
-    )
-    .await?;
+        let (repository_url, commit_ref, ssh_key) = opts;
+        let repo = if let Some(ssh_key) = ssh_key {
+            debug!(?ssh_key, "using ssh key authentication");
+            let mut callbacks = RemoteCallbacks::new();
+            callbacks.credentials(|url, username_from_url, allowed_types| {
+                Cred::ssh_key (
+                    username_from_url.unwrap_or("git"),
+                    None,
+                    Path::new(&ssh_key),
+                    None,
+                )
+            });
 
-    ProcessingError::assert_exit_status(result.status)?;
+            let mut fetch_options = FetchOptions::new();
+            fetch_options.remote_callbacks(callbacks);
 
-    // There's a nasty trick you can do when using `git checkout` where you can create a branch
-    // with the same name as a git commit, leading to a situation where you're not checked out
-    // where you want to be checked out. This is a simple fix for it.
-    debug!("assuring we have switched to the right commit");
-    let command = Command::new("git")
-        .arg("-C")
-        .arg(tmp_dir.path())
-        .arg("rev-parse")
-        .arg("HEAD")
-        .stdout(Stdio::piped())
-        .spawn()?;
-    let timeout = tokio::time::timeout(Duration::from_secs(1), command.wait_with_output()).await?;
-    let result = timeout?;
-    ProcessingError::assert_exit_status(result.status)?;
-    let received_commit_ref = std::str::from_utf8(&result.stdout)
-        .map_err(|e| {
-            error!("unable to decode utf8 from command output: {e}");
-            ProcessingError::RepositoryIntegrity
-        })?
-        .trim();
-    debug!(commit_ref, received_commit_ref, "ensuring equality");
-    if commit_ref == received_commit_ref {
-        return Err(ProcessingError::RepositoryIntegrity);
+            let mut builder = RepoBuilder::new();
+            builder.fetch_options(fetch_options);
+
+            builder.clone(repository_url.as_str(), &tmp_dir.path())?
+        } else {
+            debug!("using non-ssh key authentication");
+            Repository::clone(repository_url.as_str(), &tmp_dir.path())?
+        };
+
+        debug!("repository has been cloned");
+
+        // This actually solves the old issue of bypassing `git checkout` using a branch name
+        // instead of an exact ref. revparse_single never returns the branch, just the object
+        // that it would point to.
+        let revparse = repo.revparse_single(commit_ref.as_str())?;
+        repo.checkout_tree(&revparse, None);
+        repo.set_head_detached(revparse.id());
+
+        Ok((revparse.id(), tmp_dir))
+    }).await?;
+    let (revparse, tmp_dir) = result?;
+
+    if revparse != Oid::from_str(commit_ref)? {
+        return Err(ProcessingError::RepositoryIntegrity)
     }
+
+    debug!(object = ?revparse, "repository has been checked out");
 
     Ok(tmp_dir)
 }
@@ -177,26 +174,6 @@ pub(crate) async fn verify_commit(
     directory: &Path,
     gpghome: &Path,
 ) -> Result<()> {
-    let command = Command::new("git")
-        .arg("-C")
-        .arg(directory)
-        .arg("checkout")
-        .arg(commit_ref)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()?;
-
-    let timeout = tokio::time::timeout(Duration::from_secs(1), command.wait_with_output()).await?;
-    let result = timeout?;
-    debug!(exit_status = ?result.status, "command has completed");
-
-    dump_output(
-        format!("GNUPGHOME={gpghome:?} git -C {directory:?} verify-commit {commit_ref}").as_str(),
-        &result,
-    )
-    .await?;
-    ProcessingError::assert_exit_status(result.status)?;
-
     let command = Command::new("git")
         .env("GNUPGHOME", gpghome)
         .arg("-C")

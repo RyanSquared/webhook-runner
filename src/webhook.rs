@@ -65,8 +65,9 @@ async fn handle_push(
             .git_repository
             .as_ref()
             .unwrap_or(&repository.clone_url);
+        let ssh_key = args.ssh_key.as_ref();
         let repository_directory =
-            match clone_repository(repository_url, commit.id.as_str(), args.clone_timeout).await {
+            match clone_repository(repository_url, commit.id.as_str(), args.clone_timeout, ssh_key).await {
                 Ok(v) => v,
                 Err(e) => {
                     return Err(DeathReason::FailedClone {
@@ -103,6 +104,7 @@ async fn handle_push(
 /// Receive a webhook from a GitHub server indicating a change in code, match upon an event, and
 /// dispatch the JSON blob to a configured script.
 #[instrument(skip_all)]
+#[axum_macros::debug_handler]
 pub(crate) async fn webhook(
     args: Extension<Arc<Args>>,
     keyring_dirs: Extension<Arc<KeyringDirs>>,
