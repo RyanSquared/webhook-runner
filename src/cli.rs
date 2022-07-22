@@ -23,14 +23,6 @@ pub(crate) struct Args {
     #[clap(long, env, value_parser)]
     pub(crate) ssh_key: Option<String>,
 
-    /// TEMP: Command to run when receiving any webhook
-    #[clap(value_parser)]
-    pub(crate) command: String,
-
-    /// TEMP: Optional arguments passed to command when receiving any webhook
-    #[clap(value_parser)]
-    pub(crate) arguments: Vec<String>,
-
     /// UNSTABLE: PGP keyring file for verifying commits
     #[clap(long, env, value_parser)]
     commit_keyring: Option<String>,
