@@ -157,7 +157,10 @@ pub(crate) async fn clone_repository(
     let (revparse, tmp_dir) = result?;
 
     if revparse != Oid::from_str(commit_ref)? {
-        return Err(ProcessingError::RepositoryIntegrity)
+        return Err(ProcessingError::RepositoryIntegrity {
+            actual: revparse.to_string(),
+            expected: commit_ref.to_string(),
+        });
     }
 
     debug!(object = ?revparse, "repository has been checked out");

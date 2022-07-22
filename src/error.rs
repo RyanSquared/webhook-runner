@@ -52,8 +52,11 @@ pub(crate) enum ProcessingError {
         timeout: tokio::time::error::Elapsed,
     },
 
-    #[error("the integrity of the git repository was compromised")]
-    RepositoryIntegrity,
+    #[error("the ref we're on ({actual}) is not the ref we expect: ({expected})")]
+    RepositoryIntegrity {
+        actual: String,
+        expected: String,
+    },
 
     #[error("the http header could not be parsed: {0}")]
     HeaderParse(#[from] HeaderParseError),
