@@ -1261,6 +1261,18 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-subscriber",
+ "webhook-runner-lib",
+]
+
+[[package]]
+name = "webhook-runner-lib"
+version = "0.1.0"
+dependencies = [
+ "git2",
+ "tempdir",
+ "thiserror",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

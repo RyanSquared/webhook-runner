@@ -1,13 +1,16 @@
+/*
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
+*/
 
 use std::process::ExitStatus;
 use thiserror::Error;
 
-pub(crate) type Result<T> = std::result::Result<T, ProcessingError>;
+pub type Result<T> = std::result::Result<T, ProcessingError>;
 
+/*
 #[derive(Error, Debug)]
 pub(crate) enum HeaderParseError {
     #[error("the http header value is not a valid str: {source}")]
@@ -28,9 +31,10 @@ pub(crate) enum HeaderParseError {
         source: hex::FromHexError,
     },
 }
+*/
 
 #[derive(Error, Debug)]
-pub(crate) enum ProcessingError {
+pub enum ProcessingError {
     #[error("thread was unable to join: {source}")]
     Join {
         #[from]
@@ -58,20 +62,20 @@ pub(crate) enum ProcessingError {
         expected: String,
     },
 
-    #[error("the http header could not be parsed: {0}")]
-    HeaderParse(#[from] HeaderParseError),
+//  #[error("the http header could not be parsed: {0}")]
+//  HeaderParse(#[from] HeaderParseError),
 
-    #[error("invalid length of hmac key: {source}")]
-    HmacKeyLength {
-        #[from]
-        source: crypto_common::InvalidLength,
-    },
+//  #[error("invalid length of hmac key: {source}")]
+//  HmacKeyLength {
+//      #[from]
+//      source: crypto_common::InvalidLength,
+//  },
 
-    #[error("hmac did not match expected: {source}")]
-    HmacVerification {
-        #[from]
-        source: digest::MacError,
-    },
+//  #[error("hmac did not match expected: {source}")]
+//  HmacVerification {
+//      #[from]
+//      source: digest::MacError,
+//  },
 
     #[error("unable to perform operation on git repository: {source}")]
     GitOperation {
@@ -94,6 +98,7 @@ impl ProcessingError {
     }
 }
 
+/*
 impl IntoResponse for ProcessingError {
     fn into_response(self) -> Response {
         let body = format!("{}", self);
@@ -101,3 +106,4 @@ impl IntoResponse for ProcessingError {
         (StatusCode::INTERNAL_SERVER_ERROR, body).into_response()
     }
 }
+*/

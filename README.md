@@ -3,17 +3,57 @@
 # webhook-runner
 rust program to run thing once webhook is hit
 
-# Plans:
+## Usage:
 
-I would like a system that can determine which commands to run based off the
-result from the JSON blob as well as a way to format that data (such as a
-commit ID, a tag name, etc.) into the command. This isn't a hard requirement as
-the commands can either shell out to JQ or can be written in a language with
-structured data that can just understand JSON. I think by default the JSON
-should be passed into the stdin of the launched command.
+```
+% cargo run -- --help
+webhook-runner 0.1.0
+Run commands based on optionally signed commits from a Git repository
 
-At the current point, the HTTP request stays open until the request has
-completed. I think perhaps we should set it up to spawn the task in the
-background and just let it run. I don't think we need to wait on it. Especially
-for things that can take a significant amount of time to process, such as
-running a Terraform deployment, or building a Docker container from scratch.
+USAGE:
+    webhook-runner [OPTIONS]
+
+OPTIONS:
+    -b, --bind-address <BIND_ADDRESS>
+            Address to bind to; only accepts one argument, for multiple bind addresses use a reverse
+            proxy [env: BIND_ADDRESS=] [default: 0.0.0.0:80]
+
+        --clone-timeout <CLONE_TIMEOUT>
+            UNSTABLE: Timeout for `git clone` in seconds [env: CLONE_TIMEOUT=] [default: 4294967295]
+
+        --command-timeout <COMMAND_TIMEOUT>
+            UNSTABLE: Timeout for commands run by webhooks in seconds [env: COMMAND_TIMEOUT=]
+            [default: 4294967295]
+
+        --commit-command <COMMIT_COMMAND>
+            UNSTABLE: Shell command to run after commits are (optionally) verified [env:
+            COMMIT_COMMAND=]
+
+        --commit-keyring <COMMIT_KEYRING>
+            UNSTABLE: PGP keyring file for verifying commits [env: COMMIT_KEYRING=]
+
+        --git-repository <GIT_REPOSITORY>
+            Remote address of the Git repository; supports any format Git supports, such as
+            `git@github.com:RyanSquared/webhook-runner` [env: GIT_REPOSITORY=]
+
+    -h, --help
+            Print help information
+
+        --ssh-key <SSH_KEY>
+            Full path to file of an SSH key that should be used when a Git repository with an SSH
+            URL is configured [env: SSH_KEY=]
+
+        --tag-command <TAG_COMMAND>
+            UNSTABLE: Shell command to run after tags are (optionally) verified [env: TAG_COMMAND=]
+
+        --tag-keyring <TAG_KEYRING>
+            UNSTABLE: PGP keyring file for verifying tags [env: TAG_KEYRING=]
+
+    -V, --version
+            Print version information
+
+        --webhook-secret-key <WEBHOOK_SECRET_KEY>
+            UNSTABLE: 256-bit secret key for verifying GitHub webhooks [env: WEBHOOK_SECRET_KEY=]
+```
+
+See [TODO.md] for more information about what is planned.

@@ -12,7 +12,7 @@ use tracing::{debug, instrument};
 use crate::error::{ProcessingError, Result};
 
 #[derive(Debug, Default)]
-pub(crate) struct KeyringDirs {
+pub struct KeyringDirs {
     pub tag: Option<TempDir>,
     pub commit: Option<TempDir>,
 }
@@ -55,7 +55,7 @@ const GPGCONF_HEADER: &str = "
 /// Ensure that a directory exists with the gpg.conf file that configures how the program
 /// looks for the keyring, using a TempDir that will be automatically removed when dropped.
 #[instrument]
-pub(crate) async fn assert_gpg_directory(keyring: &str) -> Result<TempDir> {
+pub async fn assert_gpg_directory(keyring: &str) -> Result<TempDir> {
     // Ensure that the file exists by loading the file metadata, which returns std::io::Result<_>
     tokio::fs::metadata(keyring).await?;
     debug!(?keyring, "metadata exists");
@@ -102,7 +102,7 @@ pub(crate) async fn assert_gpg_directory(keyring: &str) -> Result<TempDir> {
 /// Clone a GitHub repository and ensure that a given commit ref matches what was expected,
 /// including a check to ensure that the checkout was to a commit ref and not a branch.
 #[instrument]
-pub(crate) async fn clone_repository(
+pub async fn clone_repository(
     repository_url: &str,
     commit_ref: &str,
     clone_timeout: u32,
@@ -171,7 +171,7 @@ pub(crate) async fn clone_repository(
 /// Verify that the commit ref of a given Git directory is signed by a valid signature using the
 /// GPG configuration in a given directory. Returns a Result to ensure the bad case is handled.
 #[instrument]
-pub(crate) async fn verify_commit(
+pub async fn verify_commit(
     commit_ref: &str,
     directory: &Path,
     gpghome: &Path,

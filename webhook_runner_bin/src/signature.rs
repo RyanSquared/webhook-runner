@@ -11,7 +11,9 @@ use std::sync::Arc;
 use tracing::{debug, error, instrument};
 
 use crate::cli::Args;
-use crate::error::{HeaderParseError, Result};
+use crate::error::HubSignatureValidationError;
+
+type Result<T> = std::result::Result<T, HubSignatureValidationError>;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Key(Vec<u8>);
@@ -125,33 +127,33 @@ impl HubSignature256 {
 }
 
 impl TryFrom<&HeaderValue> for HubSignature256 {
-    type Error = HeaderParseError;
+    type Error = HubSignatureValidationError;
 
-    fn try_from(value: &HeaderValue) -> std::result::Result<HubSignature256, HeaderParseError> {
+    fn try_from(value: &HeaderValue) -> Result<HubSignature256> {
         value.to_str()?.try_into()
     }
 }
 
 impl TryFrom<&str> for HubSignature256 {
-    type Error = HeaderParseError;
+    type Error = HubSignatureValidationError;
 
-    fn try_from(value: &str) -> std::result::Result<HubSignature256, HeaderParseError> {
+    fn try_from(value: &str) -> Result<HubSignature256> {
         let len = value.len();
         if len != (64 + 7) {
-            return Err(HeaderParseError::Length {
+            return Err(HubSignatureValidationError::Length {
                 length: len,
                 intended: (64 + 7),
             });
         }
         if &value[0..7] != "sha256=" {
-            return Err(HeaderParseError::Content {
+            return Err(HubSignatureValidationError::Content {
                 header: value.to_string(),
             });
         }
         let hex_decode = hex::decode(&value[7..]);
         match hex_decode {
             Ok(hex) => Ok(HubSignature256(hex)),
-            Err(e) => Err(HeaderParseError::from(e)),
+            Err(e) => Err(HubSignatureValidationError::from(e)),
         }
     }
 }
@@ -216,7 +218,7 @@ mod tests {
         );
         let err = HubSignature256::try_from("");
         match err {
-            Err(HeaderParseError::Length { .. }) => (),
+            Err(HubSignatureValidationError::Length { .. }) => (),
             e => {
                 assert!(e.is_err(), "length should be too short");
                 e.expect("incorrect error variant from HubSignature256::<&str>::try_from");
@@ -230,7 +232,7 @@ mod tests {
             "sha255=2ed61cca0a6e94c01c51ab6d396b4308f12fe39d0daffc5738fab9285ec56f9c",
         );
         match err {
-            Err(HeaderParseError::Content { .. }) => (),
+            Err(HubSignatureValidationError::Content { .. }) => (),
             e => {
                 assert!(e.is_err(), "content should be invalid");
                 e.expect("incorrect error variant from HubSignature256::<&str>::try_from");
@@ -244,7 +246,7 @@ mod tests {
             "sha256=2gd61cca0a6e94c01c51ab6d396b4308f12fe39d0daffc5738fab9285ec56f9c",
         );
         match err {
-            Err(HeaderParseError::HexDecode { .. }) => (),
+            Err(HubSignatureValidationError::HexDecode { .. }) => (),
             e => {
                 assert!(e.is_err(), "content should be invalid");
                 e.expect("incorrect error variant from HubSignature256::<&str>::try_from");

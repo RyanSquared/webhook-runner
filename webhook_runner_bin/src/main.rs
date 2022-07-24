@@ -12,12 +12,13 @@ use tracing::info;
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 use tracing_subscriber::prelude::*;
 
+use webhook_runner_lib::util as util;
+
 mod cli;
 mod error;
 mod payload;
 mod signature;
 mod status;
-mod util;
 mod webhook;
 
 fn setup_registry() {
