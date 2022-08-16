@@ -52,3 +52,10 @@ jobs:
         with:
           command: clippy
           args: -- -D warnings
+
+  verify-commit:
+    name: Verify Commit
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v2
+      - run: git verify-commit HEAD
