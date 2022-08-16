@@ -77,11 +77,26 @@ pub enum ProcessingError {
 //      source: digest::MacError,
 //  },
 
-    #[error("unable to perform operation on git repository: {source}")]
+    #[error("performing git operation on repository failed: {source}")]
     GitOperation {
         #[from]
         source: git2::Error,
     },
+
+    #[error("loading openpgp certificates from file failed: {source}")]
+    InvalidKeyringFile {
+        source: anyhow::Error,
+    },
+
+    #[error("parsing gpgsig header as signature failed: {source}")]
+    MalformedSignature {
+        source: anyhow::Error,
+    },
+
+    #[error("verifying gpgsig header failed: {source}")]
+    InvalidSignature {
+        source: anyhow::Error,
+    }
 }
 
 impl ProcessingError {

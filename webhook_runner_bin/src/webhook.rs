@@ -1,17 +1,19 @@
 use std::sync::Arc;
 
 use axum::{Extension, Json};
+use git2::Oid;
 use tracing::{debug, instrument};
 
 use crate::cli::Args;
 use crate::payload::Payload;
+use crate::repository::{clone_repository, verify_commit};
 use crate::status::DeathReason;
-use crate::util::{clone_repository, verify_commit, KeyringDirs};
+use crate::KeyringFiles;
 
 #[instrument(skip_all)]
 async fn handle_push(
     args: Extension<Arc<Args>>,
-    keyring_dirs: Extension<Arc<KeyringDirs>>,
+    keyring_files: Extension<Arc<KeyringFiles>>,
     payload: Payload,
 ) -> Result<(), DeathReason> {
     if let Payload::Push {
@@ -24,14 +26,14 @@ async fn handle_push(
         // Determine whether the push was for a tag or a branch by checking if `ref` starts
         // with an identifier for either, and depending on those options, return a command and
         // optional keyring
-        let (command, keyring_path) = if _ref.starts_with("refs/heads/") {
+        let (command, keyring_file) = if _ref.starts_with("refs/heads/") {
             // This is a commit pushed to a branch
             match &**args {
                 // This double deref seems dangerous. Trusting the compiler.
                 Args {
                     commit_command: Some(command),
                     ..
-                } => (command, &keyring_dirs.commit),
+                } => (command, &keyring_files.commit),
                 _ => return Ok(()),
             }
         } else if _ref.starts_with("refs/tags/") {
@@ -41,7 +43,7 @@ async fn handle_push(
                 Args {
                     tag_command: Some(command),
                     ..
-                } => (command, &keyring_dirs.tag),
+                } => (command, &keyring_files.tag),
                 _ => return Ok(()),
             }
         } else {
@@ -50,7 +52,7 @@ async fn handle_push(
                 value: Some(_ref.to_string()),
             });
         };
-        debug!(?command, ?keyring_path, "determined operation to run");
+        debug!(?command, "determined operation to run");
 
         let commit = match commits.last() {
             Some(c) => c,
@@ -66,33 +68,42 @@ async fn handle_push(
             .as_ref()
             .unwrap_or(&repository.clone_url);
         let ssh_key = args.ssh_key.as_ref();
-        let repository_directory =
-            match clone_repository(repository_url, commit.id.as_str(), args.clone_timeout, ssh_key).await {
-                Ok(v) => v,
-                Err(e) => {
-                    return Err(DeathReason::FailedClone {
-                        reason: e.to_string(),
-                    })
-                }
-            };
+        let (repository, repository_directory) = match clone_repository(
+            repository_url,
+            commit.id.as_str(),
+            args.clone_timeout,
+            ssh_key,
+        )
+        .await
+        {
+            Ok(v) => v,
+            Err(e) => {
+                return Err(DeathReason::FailedClone {
+                    reason: e.to_string(),
+                })
+            }
+        };
 
         // Rebind keyring path to unwrap the Option<_>
-        if let Some(keyring_path) = keyring_path {
-            // Keyring directory exists via TempDir
-            let result = verify_commit(
-                commit.id.as_str(),
-                repository_directory.path(),
-                keyring_path.path(),
-            )
-            .await;
-            match result {
-                Ok(_) => (),
-                Err(e) => {
-                    return Err(DeathReason::KeyringVerification {
+        if let Some(keyring_file) = keyring_file {
+            let commit = {
+                let oid = Oid::from_str(commit.id.as_str()).map_err(|e| {
+                    DeathReason::RepositoryError {
                         reason: e.to_string(),
-                    });
-                }
-            }
+                    }
+                })?;
+                repository.find_commit(oid).map_err(|e| {
+                    DeathReason::RepositoryError {
+                        reason: e.to_string(),
+                    }
+                })?
+            };
+
+            // Keyring directory exists via TempDir
+            let result = verify_commit(commit, keyring_file);
+            result.map_err(|e| DeathReason::KeyringVerification {
+                reason: e.to_string(),
+            })?;
         }
 
         Ok(())
@@ -107,7 +118,7 @@ async fn handle_push(
 #[axum_macros::debug_handler]
 pub(crate) async fn webhook(
     args: Extension<Arc<Args>>,
-    keyring_dirs: Extension<Arc<KeyringDirs>>,
+    keyring_dirs: Extension<Arc<KeyringFiles>>,
     Json(payload): Json<Payload>,
 ) -> Result<Json<()>, Json<DeathReason>> {
     /*

@@ -12,7 +12,9 @@ use tracing::info;
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 use tracing_subscriber::prelude::*;
 
-use webhook_runner_lib::util as util;
+use webhook_runner_lib::cert_builder as cert_builder;
+use webhook_runner_lib::repository as repository;
+use webhook_runner_lib::KeyringFiles;
 
 mod cli;
 mod error;
@@ -39,18 +41,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     args.assert();
     info!("Running with the following options: {:?}", &args);
 
-    let mut gpgdirs: util::KeyringDirs = Default::default();
+    let mut keyrings: KeyringFiles = Default::default();
     if let Some(keyring) = args.commit_keyring() {
-        gpgdirs
+        keyrings
             .commit
-            .replace(util::assert_gpg_directory(keyring.clone().as_str()).await?);
+            .replace(cert_builder::KeyringFile::from_path(keyring.clone().as_str())?);
     }
     if let Some(keyring) = args.tag_keyring() {
-        gpgdirs
-            .tag
-            .replace(util::assert_gpg_directory(keyring.clone().as_str()).await?);
+        keyrings
+            .commit
+            .replace(cert_builder::KeyringFile::from_path(keyring.clone().as_str())?);
     }
-    info!(?gpgdirs, "Built keyring directories");
 
     let app = Router::new()
         .route("/", post(webhook::webhook))
@@ -58,7 +59,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             axum::middleware::from_fn(signature::HubSignature256::verify_middleware),
         ))
         .layer(Extension(args.clone()))
-        .layer(Extension(Arc::new(gpgdirs)))
+        .layer(Extension(Arc::new(keyrings)))
         .layer(TraceLayer::new_for_http());
     let addr = &args.bind_address;
 

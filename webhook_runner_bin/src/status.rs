@@ -19,4 +19,8 @@ pub(crate) enum DeathReason {
     /// signature on the keyring
     #[error("Error verifying commit from keyring: {reason}")]
     KeyringVerification { reason: String },
+
+    /// There was some error when verifying something within the repository
+    #[error("Repository error: {reason}")]
+    RepositoryError { reason: String },
 }
