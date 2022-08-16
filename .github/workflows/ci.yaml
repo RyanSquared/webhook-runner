@@ -8,8 +8,8 @@ jobs:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v2
-      - name: install nettle
-        run: sudo apt-get install -y nettle-dev
+      - name: install dependencies
+        run: sudo apt-get install -y nettle-dev libssl-dev
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -24,8 +24,8 @@ jobs:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v2
-      - name: install nettle
-        run: sudo apt-get install -y nettle-dev
+      - name: install dependencies
+        run: sudo apt-get install -y nettle-dev libssl-dev
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -41,7 +41,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: install nettle
-        run: sudo apt-get install -y nettle-dev
+        run: sudo apt-get install -y nettle-dev libssl-dev
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
