@@ -12,8 +12,8 @@ use tracing::info;
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 use tracing_subscriber::prelude::*;
 
-use webhook_runner_lib::cert_builder as cert_builder;
-use webhook_runner_lib::repository as repository;
+use webhook_runner_lib::cert_builder;
+use webhook_runner_lib::repository;
 use webhook_runner_lib::KeyringFiles;
 
 mod cli;
@@ -41,16 +41,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     args.assert();
     info!("Running with the following options: {:?}", &args);
 
-    let mut keyrings: KeyringFiles = Default::default();
+    let mut keyrings = KeyringFiles::default();
     if let Some(keyring) = args.commit_keyring() {
         keyrings
             .commit
-            .replace(cert_builder::KeyringFile::from_path(keyring.clone().as_str())?);
+            .replace(cert_builder::KeyringFile::from_path(
+                keyring.clone().as_str(),
+            )?);
     }
     if let Some(keyring) = args.tag_keyring() {
-        keyrings
-            .tag
-            .replace(cert_builder::KeyringFile::from_path(keyring.clone().as_str())?);
+        keyrings.tag.replace(cert_builder::KeyringFile::from_path(
+            keyring.clone().as_str(),
+        )?);
     }
 
     let app = Router::new()

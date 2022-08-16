@@ -1,15 +1,11 @@
 use std::io::{Cursor, Read};
 use std::path::Path;
-use std::process::Stdio;
 
 use git2::{
     build::RepoBuilder, Commit, Cred, FetchOptions, Oid, RemoteCallbacks, Repository, Signature,
 };
 use tempdir::TempDir;
-use tokio::fs::File;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
-use tokio::process::Command;
-use tracing::{debug, error, instrument};
+use tracing::{debug, instrument};
 
 use openpgp::armor::{Kind, Reader, ReaderMode};
 use openpgp::parse::{stream::DetachedVerifierBuilder, Parse};
@@ -19,7 +15,7 @@ use sequoia_openpgp as openpgp;
 use crate::cert_builder::KeyringFile;
 use crate::error::{ProcessingError, Result};
 
-fn format_signature(header: &str, sig: Signature) -> String {
+fn format_signature(header: &str, sig: &Signature) -> String {
     let offset = sig.when().offset_minutes();
     let (sign, offset) = if offset < 0 {
         ('-', -offset)
@@ -134,8 +130,8 @@ pub fn verify_commit(commit: Commit<'_>, keyring: &KeyringFile) -> Result<()> {
         for parent in commit.parent_ids() {
             lines.push(format!("parent {parent}"));
         }
-        lines.push(format_signature("author", commit.author()));
-        lines.push(format_signature("committer", commit.committer()));
+        lines.push(format_signature("author", &commit.author()));
+        lines.push(format_signature("committer", &commit.committer()));
         lines.push("".to_string());
         if let Some(message) = commit.message() {
             lines.extend(message.lines().map(String::from));

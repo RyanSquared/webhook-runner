@@ -1,4 +1,4 @@
-#![allow(clippy::large_enum_variant)]
+#![allow(clippy::large_enum_variant, clippy::struct_excessive_bools)]
 
 use serde::Deserialize;
 

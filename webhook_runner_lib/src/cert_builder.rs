@@ -1,12 +1,12 @@
-use tracing::{debug, error};
 use std::path::Path;
+use tracing::{debug, error};
 
-use sequoia_openpgp as openpgp;
 use openpgp::cert::prelude::*;
 use openpgp::parse::{
     stream::{MessageLayer, MessageStructure, VerificationHelper},
     PacketParser, Parse,
 };
+use sequoia_openpgp as openpgp;
 
 use crate::error::{ProcessingError, Result};
 
@@ -16,6 +16,15 @@ pub struct KeyringFile {
 }
 
 impl KeyringFile {
+    /// Load `OpenPGP` certificates ("pubkeys") from a file
+    ///
+    /// # Errors
+    ///
+    /// This function can return an error when there is an error reading data from the file, but
+    /// does not error when there is a malformed packet inside of the file. This means that a file
+    /// can exist with no valid `Packet` and the function will not error. This is mostly done to
+    /// ensure that a single invalid `Packet` does not break the ability to run the webhook runner,
+    /// which may be self-hosting and therefore somewhat irreparable if broken.
     pub fn from_path<P: AsRef<Path> + std::fmt::Debug>(path: P) -> Result<Self> {
         debug!(?path, "loading keyrings from path");
         let ppr = PacketParser::from_file(path)
@@ -28,10 +37,10 @@ impl KeyringFile {
                 // could happen is that keyring verification fails. Report early, but don't
                 // terminate because of an invalid packet... since that could break the ability
                 // to add a *working* packet.
-                Err(e) => error!(e = ?e, "error parsing OpenPGP packet")
+                Err(e) => error!(e = ?e, "error parsing OpenPGP packet"),
             }
         }
-        for cert in certs.iter() {
+        for cert in &certs {
             // print the first ID of a cert
             match cert.userids().next() {
                 Some(uid) => debug!(uid = %uid.userid(), "found cert"),
@@ -67,4 +76,3 @@ impl VerificationHelper for &KeyringFile {
         }
     }
 }
-

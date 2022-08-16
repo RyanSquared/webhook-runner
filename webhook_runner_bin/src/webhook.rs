@@ -17,7 +17,7 @@ async fn handle_push(
     payload: Payload,
 ) -> Result<(), DeathReason> {
     if let Payload::Push {
-        _ref,
+        _ref: git_ref,
         commits,
         repository,
         ..
@@ -26,7 +26,7 @@ async fn handle_push(
         // Determine whether the push was for a tag or a branch by checking if `ref` starts
         // with an identifier for either, and depending on those options, return a command and
         // optional keyring
-        let (command, keyring_file) = if _ref.starts_with("refs/heads/") {
+        let (command, keyring_file) = if git_ref.starts_with("refs/heads/") {
             // This is a commit pushed to a branch
             match &**args {
                 // This double deref seems dangerous. Trusting the compiler.
@@ -36,7 +36,7 @@ async fn handle_push(
                 } => (command, &keyring_files.commit),
                 _ => return Ok(()),
             }
-        } else if _ref.starts_with("refs/tags/") {
+        } else if git_ref.starts_with("refs/tags/") {
             // This is a commit pushed to a tag
             match &**args {
                 // This double deref seems dangerous. Trusting the compiler.
@@ -49,7 +49,7 @@ async fn handle_push(
         } else {
             return Err(DeathReason::InvalidWebhook {
                 field_path: "_ref".to_string(),
-                value: Some(_ref.to_string()),
+                value: Some(git_ref.to_string()),
             });
         };
         debug!(?command, "determined operation to run");
@@ -68,7 +68,7 @@ async fn handle_push(
             .as_ref()
             .unwrap_or(&repository.clone_url);
         let ssh_key = args.ssh_key.as_ref();
-        let (repository, repository_directory) = match clone_repository(
+        let (repository, _repository_directory) = match clone_repository(
             repository_url,
             commit.id.as_str(),
             args.clone_timeout,
@@ -92,11 +92,11 @@ async fn handle_push(
                         reason: e.to_string(),
                     }
                 })?;
-                repository.find_commit(oid).map_err(|e| {
-                    DeathReason::RepositoryError {
+                repository
+                    .find_commit(oid)
+                    .map_err(|e| DeathReason::RepositoryError {
                         reason: e.to_string(),
-                    }
-                })?
+                    })?
             };
 
             // Keyring directory exists via TempDir
