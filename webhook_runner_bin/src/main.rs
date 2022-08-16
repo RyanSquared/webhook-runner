@@ -49,7 +49,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     if let Some(keyring) = args.tag_keyring() {
         keyrings
-            .commit
+            .tag
             .replace(cert_builder::KeyringFile::from_path(keyring.clone().as_str())?);
     }
 
