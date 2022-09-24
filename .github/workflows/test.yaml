@@ -1,11 +1,16 @@
-on: [workflow_call]
+on:
+  workflow_call:
+    inputs:
+      environment_label:
+        required: true
+        type: string
 
 name: Continuous integration
 
 jobs:
   check:
     name: Check
-    runs-on: self-hosted
+    runs-on: [self-hosted, "${{ inputs.environment_label }}"]
     steps:
       - uses: actions/checkout@v2
       - name: install dependencies
@@ -21,7 +26,7 @@ jobs:
 
   test:
     name: Test Suite
-    runs-on: self-hosted
+    runs-on: [self-hosted, "${{ inputs.environment_label }}"]
     steps:
       - uses: actions/checkout@v2
       - name: install dependencies
@@ -37,7 +42,7 @@ jobs:
 
   clippy:
     name: Clippy
-    runs-on: self-hosted
+    runs-on: [self-hosted, "${{ inputs.environment_label }}"]
     steps:
       - uses: actions/checkout@v2
       - name: install nettle
@@ -55,7 +60,7 @@ jobs:
 
   verify-commit:
     name: Verify Commit
-    runs-on: self-hosted
+    runs-on: [self-hosted, "${{ inputs.environment_label }}"]
     steps:
       - uses: actions/checkout@v2
       - run: git verify-commit HEAD

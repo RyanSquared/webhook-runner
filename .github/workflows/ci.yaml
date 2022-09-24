@@ -5,3 +5,5 @@ name: Continuous integration
 jobs:
   ci:
     uses: ./.github/workflows/test.yaml
+    with:
+      environment_label: ${{ secrets.RUNNER_LABEL }}
